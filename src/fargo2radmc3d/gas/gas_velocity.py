@@ -194,7 +194,6 @@ def compute_gas_velocity():
         from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
         matplotlib.rcParams.update({'font.size': 20})
-        matplotlib.rc('font', family='Arial')
         fontcolor='white'
 
         if par.half_a_disc == 'No':
@@ -256,7 +255,7 @@ def compute_gas_velocity():
         cax.set_xlabel(strgas+' midplane radial velocity '+r'[km s$^{-1}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'vrad_midplane.pdf'
+        fileout = 'vrad_midplane.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -289,7 +288,7 @@ def compute_gas_velocity():
         cax.set_xlabel(strgas+' midplane azimuthal velocity '+r'[km s$^{-1}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'vphi_midplane.pdf'
+        fileout = 'vphi_midplane.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -322,7 +321,7 @@ def compute_gas_velocity():
         cax.set_xlabel(strgas+' above vertical velocity '+r'[km s$^{-1}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'vvert_upper.pdf'
+        fileout = 'vvert_upper.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -483,7 +482,7 @@ def compute_gas_velocity():
         cax.set_xlabel('Disc midplane line of sight velocity [km/s]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'vlos_midplane.pdf'
+        fileout = 'vlos_midplane.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -520,7 +519,7 @@ def compute_gas_velocity():
         cax.set_xlabel('Disc midplane line of sight residual  velocity [km/s]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'vlos_residual_midplane.pdf'
+        fileout = 'vlos_residual_midplane.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 

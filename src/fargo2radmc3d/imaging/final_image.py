@@ -203,9 +203,9 @@ def produce_final_image(input=''):
                         strflux = r'Flux of continuum emission [$\mu$Jy/beam]'
                         # Gas RT and a single velocity channel
                         if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.widthkms == 0.0:
-                            strflux = strgas+' intensity [$\mu$Jy/beam]'
+                            strflux = strgas + r' intensity [$\mu$Jy/beam]'
                         if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.moment_order == 0 and par.widthkms != 0.0:
-                            strflux = strgas+' integrated intensity [$\mu$Jy/beam km/s]'
+                            strflux = strgas + r' integrated intensity [$\mu$Jy/beam km/s]'
 
         #
         if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.moment_order == 1:
@@ -357,15 +357,14 @@ def produce_final_image(input=''):
     # plotting image panel
     # --------------------
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial') 
     '''
     plt.rcParams['font.family'] = 'DeJavu Serif'
     plt.rcParams['font.serif'] = ['Helvetica']
     '''
     fontcolor='white'
 
-    # name of pdf file for final image
-    fileout = re.sub('.fits', '.pdf', jybeamfileout)
+    # name of png file for final image
+    fileout = re.sub('.fits', '.png', jybeamfileout)
     fig = plt.figure(figsize=(8.,8.))
     ax = plt.gca()
     plt.subplots_adjust(left=0.17, right=0.94, top=0.90, bottom=0.1)
@@ -461,9 +460,9 @@ def produce_final_image(input=''):
     if ( ('display_label' in open('params.dat').read()) and (par.display_label != '#') ):
         strlambda = par.display_label
     else:
-        strlambda = '$\lambda$='+str(round(lbda0, 2))+'mm' # round to 2 decimals
+        strlambda = r'$\lambda$=' + str(round(lbda0, 2)) + 'mm'  # round to 2 decimals
         if lbda0 < 0.01:
-            strlambda = '$\lambda$='+str(round(lbda0*1e3,2))+'$\mu$m'
+            strlambda = r'$\lambda$=' + str(round(lbda0*1e3, 2)) + r'$\mu$m'
     ax.text(xlambda,dmax-0.166*da,strlambda, fontsize=20, color = 'white',weight='bold',horizontalalignment='left')
 
     if ( (('display_time' in open('params.dat').read()) and (par.display_time == 'Yes')) or (('spot_planet' in open('params.dat').read()) and (par.spot_planet == 'Yes')) ):
@@ -650,11 +649,11 @@ def produce_final_image(input=''):
                               zoomfactor=1.)
         
         # Save polar fits in current directory
-        fileout = re.sub('.pdf', '_polar.fits', fileout)
+        fileout = re.sub('.png', '_polar.fits', fileout)
         command = 'cp deproj_polar_dir/'+fileout+' .'
         os.system(command)
 
-        filein = re.sub('.pdf', '_polar.fits', fileout)
+        filein = re.sub('.png', '_polar.fits', fileout)
         # Read fits file with deprojected field in polar coordinates
         f = fits.open(filein)
         convolved_intensity = f[0].data    # uJy/beam CB : ??

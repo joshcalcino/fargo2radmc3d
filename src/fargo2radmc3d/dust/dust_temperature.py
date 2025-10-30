@@ -41,7 +41,6 @@ def plot_dust_temperature(mystring):
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial')
     fontcolor='white'
 
     if par.half_a_disc == 'No':
@@ -97,12 +96,12 @@ def plot_dust_temperature(mystring):
         ax.text(xstr,ystr,strsize, fontsize=20, color = 'black',weight='bold',horizontalalignment='left', verticalalignment='top')
 
         if par.dustsublimation == 'No':
-            fileout = 'dustRz_temperature_'+str(l).zfill(2)+'.pdf'
+            fileout = 'dustRz_temperature_'+str(l).zfill(2)+'.png'
         else:
             if 'before' in mystring:
-                fileout = 'dustRz_temperature_'+str(l).zfill(2)+'_before_subl.pdf'
+                fileout = 'dustRz_temperature_'+str(l).zfill(2)+'_before_subl.png'
             if 'after' in mystring:
-                fileout = 'dustRz_temperature_'+str(l).zfill(2)+'_after_subl.pdf'
+                fileout = 'dustRz_temperature_'+str(l).zfill(2)+'_after_subl.png'
         
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
@@ -128,12 +127,12 @@ def plot_dust_temperature(mystring):
     ax.legend(frameon=False,fontsize=15,loc='upper right')
 
     if par.dustsublimation == 'No':
-        fileout = 'dust_midplane_axitemperature_.pdf'
+        fileout = 'dust_midplane_axitemperature_.png'
     else:
         if 'before' in mystring:
-            fileout = 'dust_midplane_axitemperature_before_subl.pdf'
+            fileout = 'dust_midplane_axitemperature_before_subl.png'
         if 'after' in mystring:
-            fileout = 'dust_midplane_axitemperature_after_subl.pdf'
+            fileout = 'dust_midplane_axitemperature_after_subl.png'
         
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
@@ -186,12 +185,12 @@ def plot_dust_temperature(mystring):
         ax.text(xstr,ystr,strsize, fontsize=20, color = 'black',weight='bold',horizontalalignment='left', verticalalignment='top')
 
         if par.dustsublimation == 'No':
-            fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'.pdf'
+            fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'.png'
         else:
             if 'before' in mystring:
-                fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'_before_subl.pdf'
+                fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'_before_subl.png'
             if 'after' in mystring:
-                fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'_after_subl.pdf'
+                fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'_after_subl.png'
         
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number

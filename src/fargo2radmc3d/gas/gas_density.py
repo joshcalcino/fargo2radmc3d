@@ -253,7 +253,6 @@ def compute_gas_mass_volume_density():
         from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
         matplotlib.rcParams.update({'font.size': 20})
-        matplotlib.rc('font', family='Arial')
         fontcolor='white'
 
         if par.half_a_disc == 'No':
@@ -327,7 +326,7 @@ def compute_gas_mass_volume_density():
         cax.set_xlabel(strgas+' number density '+r'[cm$^{-3}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'gas_number_density_Rz.pdf'
+        fileout = 'gas_number_density_Rz.png'
         plt.savefig('./'+fileout, dpi=160)
 
 
@@ -362,7 +361,7 @@ def compute_gas_mass_volume_density():
         cax.set_xlabel(strgas+' midplane number density '+r'[cm$^{-3}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'gas_number_density_midplane.pdf'
+        fileout = 'gas_number_density_midplane.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -398,7 +397,7 @@ def compute_gas_mass_volume_density():
         cax.set_xlabel(strgas+' lower plane number density '+r'[cm$^{-3}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'gas_number_density_lower.pdf'
+        fileout = 'gas_number_density_lower.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -434,7 +433,7 @@ def compute_gas_mass_volume_density():
         cax.set_xlabel(strgas+' upper plane number density '+r'[cm$^{-3}$]')
         cax.xaxis.labelpad = 8
         
-        fileout = 'gas_number_density_upper.pdf'
+        fileout = 'gas_number_density_upper.png'
         plt.savefig('./'+fileout, dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -491,7 +490,6 @@ def recompute_gas_mass_volume_density():
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial')
     fontcolor='white'
 
     if par.half_a_disc == 'No':
@@ -563,7 +561,7 @@ def recompute_gas_mass_volume_density():
     cax.set_xlabel(strgas+' number density '+r'[cm$^{-3}$]')
     cax.xaxis.labelpad = 8
         
-    fileout = 'gas_number_density_Rz_fzout.pdf'
+    fileout = 'gas_number_density_Rz_fzout.png'
     plt.savefig('./'+fileout, dpi=160)
 
 
@@ -598,7 +596,7 @@ def recompute_gas_mass_volume_density():
     cax.set_xlabel(strgas+' midplane number density '+r'[cm$^{-3}$]')
     cax.xaxis.labelpad = 8
         
-    fileout = 'gas_number_density_midplane_fzout.pdf'
+    fileout = 'gas_number_density_midplane_fzout.png'
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -634,7 +632,7 @@ def recompute_gas_mass_volume_density():
     cax.set_xlabel(strgas+' lower plane number density '+r'[cm$^{-3}$]')
     cax.xaxis.labelpad = 8
     
-    fileout = 'gas_number_density_lower_fzout.pdf'
+    fileout = 'gas_number_density_lower_fzout.png'
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
@@ -670,7 +668,7 @@ def recompute_gas_mass_volume_density():
     cax.set_xlabel(strgas+' upper plane number density '+r'[cm$^{-3}$]')
     cax.xaxis.labelpad = 8
     
-    fileout = 'gas_number_density_upper_fzout.pdf'
+    fileout = 'gas_number_density_upper_fzout.png'
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 

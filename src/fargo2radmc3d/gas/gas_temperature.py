@@ -204,7 +204,7 @@ def plot_gas_temperature():
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial')
+    matplotlib.rc('font', family='DejaVu Sans')
     fontcolor='white'
 
     # azimuthally-averaged gas temperature:
@@ -264,7 +264,7 @@ def plot_gas_temperature():
     cax.xaxis.set_label_position('top')
     if (par.RTdust_or_gas == 'gas' or (par.RTdust_or_gas == 'both' and par.Tdust_eq_Thydro == 'No')):
         cax.set_xlabel(strgas+' temperature '+r'[K]')
-        fileout = 'gas_temperature_Rz.pdf'
+        fileout = 'gas_temperature_Rz.png'
     if (par.RTdust_or_gas == 'dust' or par.RTdust_or_gas == 'both'):
         cax.set_xlabel('dust temperature '+r'[K]')
         fileout = 'dust_temperature_Rz.pdf'
@@ -304,7 +304,7 @@ def plot_gas_temperature():
     cax.xaxis.set_label_position('top')
     if (par.RTdust_or_gas == 'gas' or (par.RTdust_or_gas == 'both' and par.Tdust_eq_Thydro == 'No')):
         cax.set_xlabel(strgas+' surface temperature '+r'[K]')
-        fileout = 'gas_temperature_surface.pdf'
+        fileout = 'gas_temperature_surface.png'
     if (par.RTdust_or_gas == 'dust' or par.RTdust_or_gas == 'both'):
         cax.set_xlabel('dust surface temperature '+r'[K]')
         fileout = 'dust_temperature_surface.pdf'                

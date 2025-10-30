@@ -36,13 +36,14 @@ def write_radmc3d_script():
     if par.verbose == 'Yes':
         print(command)
     SCRIPT = open('script_radmc','w')
+    SCRIPT.write('#!/usr/bin/env bash\n')
     '''
     if par.Tdust_eq_Thydro == 'No':
         SCRIPT.write('radmc3d mctherm; '+command)
     else:
         SCRIPT.write(command)        
     '''
-    SCRIPT.write(command)
+    SCRIPT.write(command + '\n')
     SCRIPT.close()
     os.system('chmod a+x script_radmc')
 

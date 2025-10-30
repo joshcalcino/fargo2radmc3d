@@ -168,9 +168,9 @@ def plot_opacities(species='mix_2species_porous',amin=0.1,amax=1000,nbin=10,lbda
         scattering1[k] = (ks1*np.log(l2/lbda1) + ks2*np.log(lbda1/l1))/np.log(l2/l1)
         
     lbda1 *= 1e-3  # in mm
-
-    plt.loglog(sizes, absorption1, lw=2., linestyle = 'solid', color = par.c20[1], label='$\kappa_{abs}$ at '+str(lbda1)+' mm')
-    plt.loglog(sizes, absorption1+scattering1, lw=2., linestyle = 'dashed', color = par.c20[1], label='$\kappa_{abs}$+$\kappa_{sca}$ at '+str(lbda1)+' mm')
+    
+    plt.loglog(sizes, absorption1, lw=2., linestyle = 'solid', color = par.c20[1], label=r'$\kappa_{abs}$ at '+str(lbda1)+' mm')
+    plt.loglog(sizes, absorption1+scattering1, lw=2., linestyle = 'dashed', color = par.c20[1], label=r'$\kappa_{abs}$+$\kappa_{sca}$ at '+str(lbda1)+' mm')
     plt.legend()
 
     plt.ylim(absorption1.min(),(absorption1+scattering1).max())

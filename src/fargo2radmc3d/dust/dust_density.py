@@ -722,7 +722,7 @@ def plot_dust_density(mystring):
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial')
+    matplotlib.rc('font', family='DejaVu Sans')
     fontcolor='white'
     
     if par.half_a_disc == 'No':
@@ -784,12 +784,12 @@ def plot_dust_density(mystring):
     cax.xaxis.labelpad = 8
 
     if par.dustsublimation == 'No' or par.Tdust_eq_Thydro == 'Yes':
-        fileout = 'dust_density_smallest_Rz.pdf'
+        fileout = 'dust_density_smallest_Rz.png'
     if par.dustsublimation == 'Yes' and par.Tdust_eq_Thydro == 'No':
         if 'before' in mystring:
-            fileout = 'dust_density_smallest_Rz_before_subl.pdf'
+            fileout = 'dust_density_smallest_Rz_before_subl.png'
         if 'after' in mystring:
-            fileout = 'dust_density_smallest_Rz_after_subl.pdf'
+            fileout = 'dust_density_smallest_Rz_after_subl.png'
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig) 
         
@@ -826,12 +826,12 @@ def plot_dust_density(mystring):
     cax.xaxis.labelpad = 8
 
     if par.dustsublimation == 'No' or par.Tdust_eq_Thydro == 'Yes':
-        fileout = 'dust_density_largest_Rz.pdf'
+        fileout = 'dust_density_largest_Rz.png'
     if par.dustsublimation == 'Yes' and par.Tdust_eq_Thydro == 'No':
         if 'before' in mystring:
-            fileout = 'dust_density_largest_Rz_before_subl.pdf'
+            fileout = 'dust_density_largest_Rz_before_subl.png'
         if 'after' in mystring:
-            fileout = 'dust_density_largest_Rz_after_subl.pdf'
+            fileout = 'dust_density_largest_Rz_after_subl.png'
 
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig) 
@@ -871,12 +871,12 @@ def plot_dust_density(mystring):
     cax.xaxis.labelpad = 8
 
     if par.dustsublimation == 'No' or par.Tdust_eq_Thydro == 'Yes':
-        fileout = 'dust_density_smallest_midplane.pdf'
+        fileout = 'dust_density_smallest_midplane.png'
     if par.dustsublimation == 'Yes' and par.Tdust_eq_Thydro == 'No':
         if 'before' in mystring:
-            fileout = 'dust_density_smallest_midplane_before_subl.pdf'
+            fileout = 'dust_density_smallest_midplane_before_subl.png'
         if 'after' in mystring:
-            fileout = 'dust_density_smallest_midplane_after_subl.pdf'
+            fileout = 'dust_density_smallest_midplane_after_subl.png'
 
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)
@@ -914,12 +914,12 @@ def plot_dust_density(mystring):
     cax.xaxis.labelpad = 8
 
     if par.dustsublimation == 'No' or par.Tdust_eq_Thydro == 'Yes':
-        fileout = 'dust_density_largest_midplane.pdf'
+        fileout = 'dust_density_largest_midplane.png'
     if par.dustsublimation == 'Yes' and par.Tdust_eq_Thydro == 'No':
         if 'before' in mystring:
-            fileout = 'dust_density_largest_midplane_before_subl.pdf'
+            fileout = 'dust_density_largest_midplane_before_subl.png'
         if 'after' in mystring:
-            fileout = 'dust_density_largest_midplane_after_subl.pdf'
+            fileout = 'dust_density_largest_midplane_after_subl.png'
 
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)
@@ -1000,7 +1000,7 @@ def plot_dust_to_gas_density():
     cax.set_xlabel('midplane dust-to-gas density ratio')
     cax.xaxis.labelpad = 8
         
-    fileout = 'midplane_dg_ratio.pdf'
+    fileout = 'midplane_dg_ratio.png'
     plt.savefig('./'+fileout, dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 

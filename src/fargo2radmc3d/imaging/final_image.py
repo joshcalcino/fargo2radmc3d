@@ -1,5 +1,5 @@
 # import global variables
-import par
+from ..core import par
 
 import os
 import numpy as np
@@ -13,8 +13,8 @@ from astropy.io import fits
 import matplotlib.ticker as ticker
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
 
-from beam import *
-from polar import *
+from .beam import *
+from .polar import *
 
 # -------------------
 # Produce final image

@@ -1,4 +1,4 @@
-from bhmie import *
+from .bhmie import *
 import numpy as np
 from scipy.interpolate import interp1d
 import math

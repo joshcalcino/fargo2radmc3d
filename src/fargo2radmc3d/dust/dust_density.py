@@ -7,10 +7,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 # import global variables
-import par
+from ..core import par
 
-from field import *
-from mesh import *
+from ..core.field import *
+from ..core.mesh import *
 
 avgstokes  = np.zeros(par.nbin)     # average Stokes number of particles per bin size
     

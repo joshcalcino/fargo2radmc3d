@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 # import global variables
-import par
+from . import par
 import sys
 import subprocess
 

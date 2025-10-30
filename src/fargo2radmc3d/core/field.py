@@ -3,10 +3,10 @@ import os
 import sys
 import subprocess
 
-from mesh import *
+from .mesh import *
 
 # import global variables
-import par
+from . import par
 
 
 class Field(Mesh):

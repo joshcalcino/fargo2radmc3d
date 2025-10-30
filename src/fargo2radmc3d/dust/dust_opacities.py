@@ -1,11 +1,12 @@
 # import global variables
-import par
+from ..core import par
 
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import os
 
-from makedustopac import *
+from .makedustopac import *
 
 def compute_dust_opacities():
 

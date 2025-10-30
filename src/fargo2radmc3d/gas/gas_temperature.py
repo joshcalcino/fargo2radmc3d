@@ -1,8 +1,8 @@
 # import global variables
-import par
+from ..core import par
 
-from mesh import *
-from field import *
+from ..core.mesh import *
+from ..core.field import *
 
 import numpy as np
 import os

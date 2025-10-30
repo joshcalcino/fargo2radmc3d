@@ -1,10 +1,10 @@
 # import global variables
-import par
+from ..core import par
 
 import numpy as np
 
-from mesh import *
-from field import *
+from ..core.mesh import *
+from ..core.field import *
 
 import matplotlib
 import matplotlib.pyplot as plt

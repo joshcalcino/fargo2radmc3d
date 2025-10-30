@@ -1,0 +1,2 @@
+[console_scripts]
+fargo2radmc3d = fargo2radmc3d.cli:main

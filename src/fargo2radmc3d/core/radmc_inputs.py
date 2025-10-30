@@ -1,5 +1,5 @@
 # import global variables
-import par
+from . import par
 
 import numpy as np
 import os

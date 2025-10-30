@@ -416,8 +416,8 @@ if fargo3d == 'Yes':
 # Get gas surface density field from hydro simulation, with
 # the aim to inherit from the parameters attached to the mesh
 # structure (rmed, Nrad etc.)
-from field import *
-from mesh import *
+from .field import *
+from .mesh import *
 gas = Field(field='gasdens'+str(on)+'.dat', directory=dir)
 
 if periodicz == 1:

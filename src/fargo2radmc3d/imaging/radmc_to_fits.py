@@ -1,5 +1,5 @@
 # import global variables
-import par
+from ..core import par
 
 import numpy as np
 import math
@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from scipy.ndimage import map_coordinates
 from pylab import *
 
-from beam import *
+from .beam import *
 
 # -------------------------
 # Convert result of RADMC3D calculation into fits file

@@ -2,6 +2,7 @@ import numpy as np
 #import psutil
 import sys
 import subprocess
+import os
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -463,27 +464,26 @@ def compute_dust_mass_volume_density():
         # Allocate array
         dustcube = np.zeros((par.nbin, par.gas.ncol, par.gas.nrad, par.gas.nsec))
 
-        # ------------------
-        # dust surface density in each size bin directly from the simulation
-        # outputs
-        # ------------------
-        for ibin in range(par.nbin):
-
-            index = int(par.dust_id[par.dustfluids[0]-1+ibin])
-            fileread = 'dust'+str(index)+'dens'+str(par.on)+'.dat'
-            
-            # read dust mass volume density for each dust fluid in code units
-            dustcube[ibin,:,:,:] = Field(field=fileread, directory=par.dir).data
-
-            # conversion in g/cm^3
-            dustcube[ibin,:,:,:] *= (par.gas.cumass*1e3)/((par.gas.culength*1e2)**3.)  # dimensions: nbin, ncol, nrad, nsec
-
-            # decrease dust mass volume density inside mask radius
-            # NB: mask_radius is in arcseconds
+        if par.dustfluids != 'No':
+            for ibin in range(par.nbin):
+                index = int(par.dust_id[par.dustfluids[0]-1+ibin])
+                fileread = 'dust'+str(index)+'dens'+str(par.on)+'.dat'
+                dustcube[ibin,:,:,:] = Field(field=fileread, directory=par.dir).data
+                dustcube[ibin,:,:,:] *= (par.gas.cumass*1e3)/((par.gas.culength*1e2)**3.)
+                rmask_in_code_units = par.mask_radius*par.distance*par.au/par.gas.culength/1e2
+                for i in range(par.gas.nrad):
+                    if (par.gas.rmed[i] < rmask_in_code_units):
+                        dustcube[ibin,:,i,:] = 0.0
+        else:
+            gascube = par.gas.data*(par.gas.cumass*1e3)/((par.gas.culength*1e2)**3.)
+            frac = np.zeros(par.nbin)
+            for ibin in range(par.nbin):
+                frac[ibin] = (par.bins[ibin+1]**(4.0-par.pindex) - par.bins[ibin]**(4.0-par.pindex)) / (par.amax**(4.0-par.pindex) - par.amin**(4.0-par.pindex))
+                dustcube[ibin,:,:,:] = gascube * par.ratio * frac[ibin]
             rmask_in_code_units = par.mask_radius*par.distance*par.au/par.gas.culength/1e2
             for i in range(par.gas.nrad):
                 if (par.gas.rmed[i] < rmask_in_code_units):
-                    dustcube[ibin,:,i,:] = 0.0 # *= ( (par.gas.rmed[i]/rmask_in_code_units)**(10.0) ) 
+                    dustcube[:, :, i, :] = 0.0
             
         print('--------- computing dust mass volume density ----------')
         DUSTOUT = open('dust_density.binp','wb')        # binary format
@@ -558,7 +558,7 @@ def compute_dust_mass_volume_density():
         for ibin in range(par.nbin):
             if par.fargo3d == 'No':
                 St = avgstokes[ibin]    # avg stokes number for that bin
-            if par.fargo3d == 'Yes' and par.dustfluids != 'No':
+            elif par.fargo3d == 'Yes':
                 St = Stokes_fargo3d[ibin]
 
             # gas aspect ratio (par.gas.rmed[i] = R in code units)
@@ -722,7 +722,6 @@ def plot_dust_density(mystring):
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
         
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='DejaVu Sans')
     fontcolor='white'
     
     if par.half_a_disc == 'No':
@@ -790,7 +789,9 @@ def plot_dust_density(mystring):
             fileout = 'dust_density_smallest_Rz_before_subl.png'
         if 'after' in mystring:
             fileout = 'dust_density_smallest_Rz_after_subl.png'
-    plt.savefig('./'+fileout, dpi=160)
+    outdir = 'disk_diagnostics'
+    os.makedirs(outdir, exist_ok=True)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig) 
         
     # --- repeat for largest bin size ---
@@ -878,7 +879,7 @@ def plot_dust_density(mystring):
         if 'after' in mystring:
             fileout = 'dust_density_smallest_midplane_after_subl.png'
 
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)
 
     # --- repeat for largest bin size ---
@@ -921,7 +922,7 @@ def plot_dust_density(mystring):
         if 'after' in mystring:
             fileout = 'dust_density_largest_midplane_after_subl.png'
 
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)
 
         
@@ -966,7 +967,6 @@ def plot_dust_to_gas_density():
     import matplotlib.ticker as ticker
     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
     matplotlib.rcParams.update({'font.size': 20})
-    matplotlib.rc('font', family='Arial')
     fontcolor='white'
     
     print('--------- plotting midplane dust-to-gas density ratio   ----------')
@@ -1001,7 +1001,7 @@ def plot_dust_to_gas_density():
     cax.xaxis.labelpad = 8
         
     fileout = 'midplane_dg_ratio.png'
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
     del rhodustcube

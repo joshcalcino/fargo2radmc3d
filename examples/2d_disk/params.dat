@@ -5,7 +5,7 @@
 dir				data					# local directory of fargo simulation
 on				5						# fargo's output number
 override_units	Yes						# do we change code units? If so, the two lines below must be specified
-new_unit_length	1.496e12				# new unit of length in meters
+new_unit_length	1.496e13				# new unit of length in meters
 new_unit_mass	1.989e30				# new unit of mass in kg
 
 
@@ -14,7 +14,7 @@ new_unit_mass	1.989e30				# new unit of mass in kg
 ###############
 
 verbose			Yes			# verbose mode (if Yes, many prints on the screen)
-RTdust_or_gas	gas			# radiative transfer in the dust, the gas or both? (type 'dust', 'gas' or 'both')
+RTdust_or_gas	both			# radiative transfer in the dust, the gas or both? (type 'dust', 'gas' or 'both')
 
 Tdust_eq_Thydro	No			# do we take the hydro gas temperature for the dust temperature? (if No, mctherm is run)
 Tdust_eq_Tgas	Yes			# if No, are the gas and dust temperatures taken equal? 
@@ -52,16 +52,16 @@ secondorder	Yes				# second order ray tracing
 ### dust RT calculations ###
 ############################
 
-recalc_dust_density		Yes	  # do we recompute dust densities?
-recalc_dust_temperature	Yes	  # do we recompute dust temperatures?
+recalc_dust_density		no	  # do we recompute dust densities?
+recalc_dust_temperature	yes	  # do we recompute dust temperatures?
 plot_dust_quantities	Yes	  # if yes, plot for smallest and largest bin: midplane dust density, phi-averaged density vs. R and Z + same for T + opacities
-recalc_opac				Yes	  # do we recompute dust opacities?
+recalc_opac				no	  # do we recompute dust opacities?
 polarized_scat			No	  # do we assume polarized scattering?
 wavelength				2.0	  # wavelength in mm
-nbcores					8	  # how many cores do we use for radmc3D calculation?
+nbcores					12	  # how many cores do we use for radmc3D calculation?
 scat_mode				2	  # scattering mode max parameter (0: absorption, 2: anisotropic scattering)
-nb_photons				3e6	  # number of photos for raytracing
-nb_photons_scat			3e6	  # number of photos for raytracing (scattering)
+nb_photons				5e6	  # number of photos for raytracing
+nb_photons_scat			1e6	  # number of photos for raytracing (scattering)
 AddStarInRawImage		No	  # add star in specific intensity image?
 star_to_disc_flux_ratio	0.09  # if so, enter the total star-to-disc flux ratio at working wavelength
 
@@ -79,7 +79,7 @@ z_expansion		T			# type of vertical expansion for dust density (T, T2 or F, only
 ### Dust opacities
 species			mix_2species_ice70			# type of dust particles for opacity calculations (eg, mix_2species_ice70, mix_2species_60silicates_40carbons...)
 precalc_opac	No							# do we use precalculated dust opacities?
-opacity_dir	/home/cbaruteau/fargo/python/fargo2radmc3d/opac	# if so, name of directory with opacity files (a global extension is needed)
+opacity_dir	/home/josh/code/fargo2radmc3d/data/opac	# if so, name of directory with opacity files (a global extension is needed)
 
 
 ### options with polarized scattering
@@ -103,7 +103,7 @@ gasspecies		co		# what gas species do we consider (e.g.: co, 13co, c17o, c18o)
 iline			3		# the ith line in the rotational ladder (eg, 3 means 3-2)
 abundance		1e-4	# abundance (species/H2): 1e-4 for 12co, 2e-6 for 13co, 2e-8 for c18o, 1e-10 for hco+
 vkms			0.0		# velocity shift wrt systemic velocity (km/s)?
-widthkms		8.0		# velocity width around systemic velocity (km/s)?
+widthkms		5.0		# velocity width around systemic velocity (km/s)?
 moment_order	0		# order of moment map for gas emission (basically, 0 or 1)
 linenlam		81		# number of wavelengths for multi-color gas images (eg, for moment 0 or 1 maps)
 turbvel			0.0		# turbulent velocity (m/s)
@@ -121,18 +121,18 @@ intensity_inJyperpixel_inrawdatacube	 No    # if Yes: gas datacube in Jy/pixel (
 distance	162.9		# disc distance in parsecs
 inclination	26.0		# disc inclination in degrees
 xaxisflip    	No		# implies that effective inclination += 180 deg
-phiangle	-10.0		# disc phi angle in degrees
+phiangle	 45.0		# disc phi angle in degrees
 posangle	-120.0		# disc position angle in degrees (observed value)
 rstar		2.0			# star radius in solar radii
-teff		8130.0		# star effective temperature
+teff		6130.0		# star effective temperature
 
 
 ###################
 ### beam parameters
 ###################
 
-bmaj		0.28 		# beam major-axis in arcseconds
-bmin		0.24 		# beam minor-axis in arcseconds
+bmaj		0.05 		# beam major-axis in arcseconds
+bmin		0.05 		# beam minor-axis in arcseconds
 bpaangle	-81.0  		# beam position angle in degrees (observed value)
 check_beam	No			# check beam is correct by adding source point at origin
 

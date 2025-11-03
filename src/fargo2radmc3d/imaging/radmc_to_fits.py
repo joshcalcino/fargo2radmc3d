@@ -4,12 +4,30 @@ from ..core import par
 import numpy as np
 import math
 import os
+import re
+import inspect
 from astropy.io import fits
 from astropy.wcs import WCS
 from scipy.ndimage import map_coordinates
 from pylab import *
 
 from .beam import *
+
+def _called_from_cli():
+    """Return True if a frame from fargo2radmc3d.cli is in the call stack."""
+    try:
+        for frameinfo in inspect.stack():
+            mod = inspect.getmodule(frameinfo.frame)
+            if mod is None:
+                continue
+            name = getattr(mod, '__name__', '')
+            path = getattr(mod, '__file__', '')
+            if name == 'fargo2radmc3d.cli' or (isinstance(path, str) and path.endswith(os.path.join('fargo2radmc3d','cli.py'))):
+                return True
+    finally:
+        # Explicitly delete references to frames to avoid reference cycles
+        del frameinfo
+    return False
 
 # -------------------------
 # Convert result of RADMC3D calculation into fits file
@@ -146,18 +164,32 @@ def exportfits():
             # close image file image.out
             f.close()
 
-            # now that image.fits is created, no need to keep image.out!
-            os.system('rm -f image.out')
+            # now that image.fits is created, delete image.out only when run via CLI
+            if _called_from_cli():
+                try:
+                    os.remove('image.out')
+                except OSError:
+                    pass
             
         else:
-            # image.fits is already present, no need to keep image.out!
-            os.system('rm -f image.out')
+            # image.fits is already present; delete image.out only when run via CLI
+            if _called_from_cli():
+                try:
+                    os.remove('image.out')
+                except OSError:
+                    pass
 
             
     # ----------
     # if image.out is no longer here (it has been deleted), we read image.fits file instead
     # ----------
     else:
+        # If image.out is missing, ensure image.fits exists; otherwise, fail clearly
+        if not os.path.isfile('image.fits'):
+            raise FileNotFoundError(
+                'Neither image.out nor image.fits exist in the working directory. '
+                'Run RADMC-3D first to produce image.out (e.g., via the pipeline or stage that calls radmc3d).'
+            )
         print('--------- reading image.fits ----------')
         f2 = fits.open('image.fits')
         images = f2[0].data
@@ -458,13 +490,14 @@ def exportfits():
 
         # filename
         inbasename = os.path.basename('./'+par.outputfitsfile)
-        # add beam information
-        if par.log_colorscale == 'Yes':
-            jybeamfileoutminusvK = re.sub('.fits', '_logYes' + '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin) + '.fits', inbasename)
+        if par.model_name == '#':
+            if par.log_colorscale == 'Yes':
+                jybeamfileoutminusvK = re.sub('.fits', '_logYes' + '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin) + '.fits', inbasename)
+            else:
+                jybeamfileoutminusvK = re.sub('.fits', '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin) + '.fits', inbasename)
+            jybeamfileoutminusvK=re.sub('.fits', '_JyBeam_residual.fits', jybeamfileoutminusvK)
         else:
-            jybeamfileoutminusvK = re.sub('.fits', '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin) + '.fits', inbasename)
-
-        jybeamfileoutminusvK=re.sub('.fits', '_JyBeam_residual.fits', jybeamfileoutminusvK)
+            jybeamfileoutminusvK=re.sub('.fits', '_JyBeam_residual.fits', inbasename)
         hdu_2.writeto(jybeamfileoutminusvK, output_verify='fix', overwrite=True)
 
 

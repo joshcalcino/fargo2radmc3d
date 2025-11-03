@@ -20,6 +20,8 @@ def _import_legacy_modules():
     from fargo2radmc3d.gas import gas_temperature as gas_temperature_mod
     from fargo2radmc3d.gas import gas_velocity as gas_velocity_mod
 
+    from fargo2radmc3d.chemistry import pinte_co as chemistry_pinte_mod
+
     from fargo2radmc3d.imaging import radmc_to_fits as radmc_to_fits_mod
     from fargo2radmc3d.imaging import final_image as final_image_mod
 
@@ -34,6 +36,7 @@ def _import_legacy_modules():
         'gas_velocity': gas_velocity_mod,
         'radmc_to_fits': radmc_to_fits_mod,
         'final_image': final_image_mod,
+        'chem_pinte': chemistry_pinte_mod,
     }
 
 def _eprint(*a, **k):  # tiny helper for stderr prints
@@ -94,6 +97,12 @@ def _legacy_run(workdir: Path) -> None:
             GD.compute_gas_mass_volume_density()
             GV.write_gas_microturb()
             GV.compute_gas_velocity()
+            # Optional: Pinte+2018 CO photochemistry
+            if str(getattr(par, 'photodissociation', 'No')).lower() in ('pinte2018', 'pinte'):
+                try:
+                    mods['chem_pinte'].run(model_dir='.', mol=str(par.gasspecies), use_dust_temperature=(par.Tdust_eq_Thydro == 'No'))
+                except Exception as e:
+                    _eprint(f"[chemistry] Pinte2018 run skipped: {e}")
 
     # --- Both branch ---
     if par.RTdust_or_gas == 'both':
@@ -105,6 +114,9 @@ def _legacy_run(workdir: Path) -> None:
             GD.compute_gas_mass_volume_density()
             GV.write_gas_microturb()
             GV.compute_gas_velocity()
+            # Optional: Pinte+2018 CO photochemistry
+            if str(getattr(par, 'photodissociation', 'No')).lower() in ('pinte2018', 'pinte'):
+                mods['chem_pinte'].run(model_dir='.', mol=str(par.gasspecies), use_dust_temperature=(par.Tdust_eq_Thydro == 'No'))
         if par.recalc_dust_density == 'Yes':
             DD.compute_dust_mass_volume_density()
         if par.plot_dust_quantities == 'Yes':
@@ -141,7 +153,7 @@ def _legacy_run(workdir: Path) -> None:
             setthreads=par.nbcores,
         )
 
-        if (par.RTdust_or_gas in ('dust', 'both')) and par.Tdust_eq_Thydro == 'No':
+        if (par.RTdust_or_gas in ('dust', 'both')) and par.Tdust_eq_Thydro == 'No' and par.recalc_dust_temperature == 'Yes':
             _run(['radmc3d', 'mctherm'], cwd=workdir)
             if par.plot_dust_quantities == 'Yes':
                 DT.plot_dust_temperature('' if par.dustsublimation == 'No' else 'before')

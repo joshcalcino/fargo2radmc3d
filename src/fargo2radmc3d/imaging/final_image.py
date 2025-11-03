@@ -31,17 +31,17 @@ def produce_final_image(input=''):
         # remove .fits extension
         outfile = os.path.splitext(par.outputfitsfile_dust)[0]
 
-    if par.RTdust_or_gas == 'dust' and par.polarized_scat == 'Yes':
-        outfile += '_mask'+str(par.mask_radius)
-        outfile += '_'+str(par.polarized_scat_field)
-        outfile += '_r2'+str(par.r2_rescale)
-
-    if par.log_colorscale == 'Yes':
-        outfile += '_logYes'
-        
-    # add bmaj information
-    outfile = outfile + '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin)
-    outfile = outfile+'.fits'
+    if par.model_name == '#':
+        if par.RTdust_or_gas == 'dust' and par.polarized_scat == 'Yes':
+            outfile += '_mask'+str(par.mask_radius)
+            outfile += '_'+str(par.polarized_scat_field)
+            outfile += '_r2'+str(par.r2_rescale)
+        if par.log_colorscale == 'Yes':
+            outfile += '_logYes'
+        outfile = outfile + '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin)
+        outfile = outfile+'.fits'
+    else:
+        outfile = outfile+'.fits'
         
     hdr = f[0].header
     # pixel size converted from degrees to arcseconds
@@ -340,7 +340,7 @@ def produce_final_image(input=''):
 
         # save final fits
         inbasename = os.path.basename('./'+outfile)
-        if par.add_noise == 'Yes':
+        if par.add_noise == 'Yes' and par.model_name == '#':
             substr='_wn'+str(par.noise_dev_std)+'_JyBeam.fits' 
             jybeamfileout=re.sub('.fits', substr, inbasename)
         else:
@@ -791,9 +791,9 @@ def produce_final_image(input=''):
 
             # finally save the image
             if (par.RTdust_or_gas == 'gas'):
-                plt.savefig('deproj_moment0_gas.pdf', dpi=160, bbox_inches='tight')
+                plt.savefig('deproj_moment0_gas.png', dpi=160, bbox_inches='tight')
             if (par.RTdust_or_gas == 'dust'):
-                plt.savefig('deproj_moment0_dust.pdf', dpi=160, bbox_inches='tight')
+                plt.savefig('deproj_moment0_dust.png', dpi=160, bbox_inches='tight')
 
 
         if par.log_colorscale == 'Yes':
@@ -813,7 +813,7 @@ def produce_final_image(input=''):
         # -------------------------------
         # plot image in polar coordinates
         # -------------------------------
-        fileout = re.sub('.fits', '.pdf', filein)
+        fileout = re.sub('.fits', '.png', filein)
         fig = plt.figure(figsize=(8.,8.))
         plt.subplots_adjust(left=0.15, right=0.96, top=0.88, bottom=0.09)
         ax = plt.gca()
@@ -1036,13 +1036,6 @@ def produce_final_image(input=''):
             if par.log_colorscale == 'Yes':
                 cax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, numticks=10))
             # title on top
-            cax.xaxis.set_label_position('top')
-            cax.set_xlabel(strflux)
-            cax.xaxis.labelpad = 8
-
-            #plt.savefig('./'+fileout, dpi=160)
-            plt.savefig('./'+"moment_0_minus_mean_intensity.pdf", dpi=160)
-            plt.clf()
 
         '''
 
@@ -1063,7 +1056,7 @@ def produce_final_image(input=''):
                 jybeamfileoutminusvK = re.sub('.fits', '_bmaj'+str(par.bmaj) + '_bmin'+str(par.bmin) + '.fits', inbasename)
 
             jybeamfileoutminusvK=re.sub('.fits', '_JyBeam_residual.fits', jybeamfileoutminusvK)
-            fileout_moment1_residual = re.sub('.fits','_JyBeam_residual.pdf', jybeamfileoutminusvK)
+            fileout_moment1_residual = re.sub('.fits','_JyBeam_residual.png', jybeamfileoutminusvK)
 
             f = fits.open(jybeamfileoutminusvK)
             raw_intensity = f[0].data
@@ -1193,7 +1186,7 @@ def produce_final_image(input=''):
                 # (RA,DEC) [_centered], deprojection by cos(i) [_stretched], polar
                 # image [_polar], etc. Also, a _radial_profile which is the
                 # average radial intensity.
-                fileout_deproj = re.sub('.fits', '.pdf', jybeamfileoutminusvK)
+                fileout_deproj = re.sub('.fits', '.png', jybeamfileoutminusvK)
                 exec_polar_expansions(jybeamfileoutminusvK,'deproj_polar_dir',par.posangle,cosi,RA=RA,DEC=DEC,
                                     alpha_min=alpha_min, Delta_min=Delta_min,
                                     XCheckInv=False,DoRadialProfile=False,
@@ -1201,7 +1194,7 @@ def produce_final_image(input=''):
                                     zoomfactor=1.)
                 
                 # Save polar fits in current directory
-                fileout_deproj = re.sub('.pdf', '_polar.fits', fileout_deproj)
+                fileout_deproj = re.sub('.png', '_polar.fits', fileout_deproj)
 
                 #command = 'cp deproj_polar_dir/'+fileout+' .'
                 command = 'cp deproj_polar_dir/'+fileout_deproj+' .'
@@ -1336,7 +1329,7 @@ def produce_final_image(input=''):
 
                 # finally save the image
                 if (par.RTdust_or_gas == 'gas'):
-                    plt.savefig('deproj_moment1_gas.pdf', dpi=160, bbox_inches='tight')
+                    plt.savefig('deproj_moment1_gas.png', dpi=160, bbox_inches='tight')
             
             os.system('rm -rf deproj_polar_dir')
             os.chdir(currentdir)

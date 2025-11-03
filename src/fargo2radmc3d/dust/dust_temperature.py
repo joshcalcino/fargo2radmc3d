@@ -60,6 +60,10 @@ def plot_dust_temperature(mystring):
     
     mynorm = matplotlib.colors.Normalize(vmin=axitemp.min(),vmax=axitemp.max())
     
+    # Ensure output directory
+    outdir = 'temperature_diagnostics'
+    os.makedirs(outdir, exist_ok=True)
+
     # Loop over size bins:
     for l in range(par.nbin):
 
@@ -103,7 +107,7 @@ def plot_dust_temperature(mystring):
             if 'after' in mystring:
                 fileout = 'dustRz_temperature_'+str(l).zfill(2)+'_after_subl.png'
         
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -134,7 +138,7 @@ def plot_dust_temperature(mystring):
         if 'after' in mystring:
             fileout = 'dust_midplane_axitemperature_after_subl.png'
         
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -192,6 +196,6 @@ def plot_dust_temperature(mystring):
             if 'after' in mystring:
                 fileout = 'dustmidplane_temperature_'+str(l).zfill(2)+'_after_subl.png'
         
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 

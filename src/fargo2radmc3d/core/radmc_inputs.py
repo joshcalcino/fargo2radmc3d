@@ -3,6 +3,11 @@ from . import par
 
 import numpy as np
 import os
+import matplotlib
+import matplotlib.pyplot as plt
+
+# Physical constants (cgs)
+SIGMA_SB = 5.670374419e-5  # Stefan–Boltzmann constant [erg cm^-2 s^-1 K^-4]
 
 
 # -------------------------
@@ -89,16 +94,18 @@ def write_AMRgrid(F, R_Scaling=1, Plot=False):
 # -----------------------
 # writing out wavelength 
 # -----------------------
-def write_wavelength():
-    wmin = 0.1
-    wmax = 10000.0
-    Nw = 150
+def _build_wavelength_grid(wmin=0.1, wmax=10000.0, Nw=150):
     Pw = (wmax/wmin)**(1.0/(Nw-1))
-    
     waves = np.zeros(Nw)
     waves[0] = wmin
     for i in range(1, Nw):
-        waves[i]=wmin*Pw**i
+        waves[i] = wmin * Pw**i
+    return waves
+
+
+def write_wavelength(wmin=0.1, wmax=10000.0):
+    Nw = 150
+    waves = _build_wavelength_grid(wmin=wmin, wmax=wmax, Nw=Nw)
 
     if par.verbose == 'Yes':
         print('writing wavelength_micron.inp')
@@ -111,19 +118,140 @@ def write_wavelength():
     wave.close()
 
 
-# -----------------------
-# writing out star parameters 
-# -----------------------
-def write_stars(Rstar = 1, Tstar = 6000):
-    wmin = 0.1
-    wmax = 10000.0
-    Nw = 150
-    Pw = (wmax/wmin)**(1.0/(Nw-1))
-    
-    waves = np.zeros(Nw)
-    waves[0] = wmin
-    for i in range(1, Nw):
-        waves[i]=wmin*Pw**i
+def _B_lambda(lam_cm: np.ndarray, T: float) -> np.ndarray:
+    """Planck function B_lambda [erg s^-1 cm^-2 sr^-1 cm^-1]."""
+    h = par.h
+    c = par.c
+    kB = par.kB
+    x = (h*c)/(lam_cm*kB*T)
+    x = np.clip(x, 1e-10, 1e3)
+    return (2.0*h*c*c)/(lam_cm**5) / (np.expm1(x))
+
+
+def _source_scale(R_cm: float) -> float:
+    """Geometric scale factor pi R^2 / d^2 using current par.distance."""
+    d_cm = float(par.distance) * par.pc
+    return np.pi * (R_cm*R_cm) / (d_cm*d_cm)
+
+
+def compute_stellar_accretion_sed(lam_um: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute F_lambda for star, accretion, and total on lam_um using the same
+    source assembly as write_stars(). Returns (F_star_um, F_acc_um, F_tot_um)."""
+    lam_cm = lam_um * 1e-4
+    stars = _assemble_star_sources(par.rstar, par.teff)
+    F_star_cm = np.zeros_like(lam_cm)
+    F_acc_cm = np.zeros_like(lam_cm)
+    for s in stars:
+        scale = _source_scale(s['R_cm'])
+        F_cm = scale * _B_lambda(lam_cm, s['T_K'])
+        if s.get('kind') == 'accretion':
+            F_acc_cm += F_cm
+        else:
+            F_star_cm += F_cm
+    F_star_um = F_star_cm * 1e-4
+    F_acc_um = F_acc_cm * 1e-4
+    F_tot_um = F_star_um + F_acc_um
+    return F_star_um, F_acc_um, F_tot_um
+
+
+def read_wavelength_grid_or_default() -> np.ndarray:
+    """Read wavelength_micron.inp if present; else build the default grid.
+    Returns wavelengths in micron.
+    """
+    if os.path.isfile('wavelength_micron.inp'):
+        with open('wavelength_micron.inp', 'r') as f:
+            N = int(f.readline().strip())
+            return np.array([float(f.readline().strip()) for _ in range(N)])
+    return _build_wavelength_grid()
+
+
+def plot_stellar_accretion_sed():
+    try:
+        # 1) Wavelength grid in micron (shared reader)
+        lam_um = read_wavelength_grid_or_default()
+
+        # 2) Compute SED using shared function
+        F_star_um, F_acc_um, F_tot_um = compute_stellar_accretion_sed(lam_um)
+
+        # 5) Plot
+        matplotlib.rcParams.update({'font.size': 14})
+        plt.figure(figsize=(7.5,5.5))
+        plt.loglog(lam_um, F_star_um, label='Star')
+        if np.any(F_acc_um > 0):
+            plt.loglog(lam_um, F_acc_um, label='Accretion')
+        plt.loglog(lam_um, F_tot_um, label='Total', linestyle='--')
+        plt.xlabel('Wavelength [μm]')
+        plt.ylabel('Flux density [erg s$^{-1}$ cm$^{-2}$ μm$^{-1}$]')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('stellar_accretion_sed.png', dpi=160)
+        plt.close()
+    except Exception as _e:
+        pass
+
+
+def compute_stellar_accretion_luminosities() -> dict:
+    """Compute and return stellar/accretion luminosities using shared sources.
+    Returns dict with keys: T_star, L_star, T_acc (optional), L_acc, L_tot [cgs].
+    """
+    stars = _assemble_star_sources(par.rstar, par.teff)
+    L_star = 0.0
+    L_acc = 0.0
+    T_star = None
+    T_acc = None
+    for s in stars:
+        L = 4.0 * np.pi * SIGMA_SB * s['R_cm']*s['R_cm'] * (s['T_K']**4)
+        if s.get('kind') == 'accretion':
+            L_acc += L
+            T_acc = s['T_K']
+        else:
+            L_star += L
+            T_star = s['T_K']
+    return {
+        'T_star': T_star,
+        'L_star': L_star,
+        'T_acc': T_acc,
+        'L_acc': L_acc,
+        'L_tot': L_star + L_acc,
+    }
+
+
+def print_stellar_accretion_diagnostics() -> None:
+    try:
+        d = compute_stellar_accretion_luminosities()
+        print(f"[SED] Star:    T={d['T_star']:.2f} K   L={d['L_star']:.3e} erg/s")
+        if d['T_acc'] is not None and d['L_acc'] > 0.0:
+            print(f"[SED] Accr.:   T={d['T_acc']:.2f} K   L={d['L_acc']:.3e} erg/s")
+        print(f"[SED] Total:              L={d['L_tot']:.3e} erg/s")
+    except Exception:
+        pass
+
+
+def _assemble_star_sources(Rstar, Tstar):
+    stars = []
+    r_cm = Rstar * par.R_Sun
+    mstar_g = getattr(par, 'mstar', 1.0) * par.M_Sun
+    stars.append({'R_cm': r_cm, 'M_g': mstar_g, 'T_K': float(Tstar), 'kind': 'star'})
+    mdot_msun_per_yr = float(getattr(par, 'mdot', 0.0))
+    include_flag = str(getattr(par, 'include_accretion_lum', 'No')).lower() == 'yes'
+    if mdot_msun_per_yr > 0.0 or include_flag:
+        if mdot_msun_per_yr > 0.0:
+            # Accretion filling factor (fraction of stellar surface emitting)
+            f_fill = float(getattr(par, 'accretion_fill_factor', getattr(par, 'f', 0.01)))
+            f_fill = max(min(f_fill, 1.0), 1e-6)
+            mdot_g_per_s = mdot_msun_per_yr * par.M_Sun / (365.25*24.0*3600.0)
+            Lacc = par.G * mstar_g * mdot_g_per_s / r_cm
+            # Hotspot radius such that area = f * 4 pi R_*^2
+            r_acc = (f_fill**0.5) * r_cm
+            # Temperature over hotspot area so that sigma T^4 * area = Lacc
+            Tacc = (Lacc / (4.0*np.pi*SIGMA_SB*r_acc*r_acc))**0.25
+            if Tacc > 0.0:
+                stars.append({'R_cm': r_acc, 'M_g': mstar_g, 'T_K': float(Tacc), 'kind': 'accretion'})
+    return stars
+
+
+def write_stars(Rstar = 1, Tstar = 6000, wmin=0.1, wmax=10000.0, Nw = 150):
+    waves = _build_wavelength_grid(wmin=wmin, wmax=wmax, Nw=Nw)
 
     if par.verbose == 'Yes':
         print('writing stars.inp')
@@ -131,12 +259,18 @@ def write_stars(Rstar = 1, Tstar = 6000):
     path = 'stars.inp'
     wave = open(path,'w')
 
-    wave.write('\t 2\n') 
-    wave.write('1 \t'+str(Nw)+'\n')
-    wave.write(str(Rstar*par.R_Sun)+'\t'+str(par.M_Sun)+'\t 0 \t 0 \t 0 \n')
+    stars = _assemble_star_sources(Rstar, Tstar)
+
+    # Write header and star descriptors
+    wave.write('\t 2\n')
+    wave.write(f"{len(stars)} \t{Nw}\n")
+    for s in stars:
+        wave.write(f"{s['R_cm']}\t{s['M_g']}\t 0 \t 0 \t 0 \n")
     for i in range(Nw):
         wave.write('\t'+str(waves[i])+'\n')
-    wave.write('\t -'+str(Tstar)+'\n')
+    # For each star, write a negative temperature to indicate blackbody emitter
+    for s in stars:
+        wave.write('\t -'+str(s['T_K'])+'\n')
     wave.close()
 
 

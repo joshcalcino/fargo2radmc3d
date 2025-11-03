@@ -135,6 +135,10 @@ if RTdust_or_gas == 'dust':
         dust_interpolation = 'T'
     if not('dustsublimation' in open('params.dat').read()):
         dustsublimation = 'No'
+
+    # control whether to compute and write mean intensity (J_nu) via mcmono after mctherm
+    if not('write_meanint' in open('params.dat').read()):
+        write_meanint = 'No'
     
 # Case where only line transfer is calculated:
 if RTdust_or_gas == 'gas':
@@ -154,6 +158,8 @@ if RTdust_or_gas == 'both':
         dust_interpolation = 'T'
     if not('dustsublimation' in open('params.dat').read()):
         dustsublimation = 'No'
+    if not('write_meanint' in open('params.dat').read()):
+        write_meanint = 'No'
 
 if recalc_radmc == 'Yes':
     recalc_rawfits = 'Yes'
@@ -212,7 +218,11 @@ if fargo3d == 'Yes' and (RTdust_or_gas == 'dust' or RTdust_or_gas == 'both'):
         buf = subprocess.check_output(command, shell=True)
     else:                         # python 3.X
         buf = subprocess.getoutput(command)
-    dust_internal_density = float(buf.split()[1])   # in g / cm^3
+    try:
+        dust_internal_density = float(buf.split()[1])
+    except Exception:
+        dust_internal_density = 2.7
+        print('warning: DUSTINTERNALRHO not found in '+dir+'/variables.par; defaulting dust_internal_density to 2.7 g/cm^3')
     # case where dust fluids are simulated
     if dustfluids != 'No':
         # find out how many dust fluids there are:
@@ -252,47 +262,58 @@ if fargo3d == 'Yes' and (RTdust_or_gas == 'dust' or RTdust_or_gas == 'both'):
 else:
     bins = np.logspace(np.log10(amin), np.log10(amax), nbin+1) 
         
+# Use only the basename of dir in output labels to avoid slashes in filenames
+dir_label = os.path.basename(os.path.normpath(dir))
+
+if not('model_name' in open('params.dat').read()):
+    model_name = '#'
+
 # label for the name of the image file created by RADMC3D
 if RTdust_or_gas == 'dust':
-    label = dir+'_o'+str(on)+'_p'+str(pindex)+'_r'+str(ratio)+'_a'+str(amin)+'_'+str(amax)+'_nb'+str(nbin)+'_mode'+str(scat_mode)+'_np'+str('{:.0e}'.format(nb_photons))+'_nc'+str(ncol)+'_z'+str(z_expansion)+'_xf'+str(xaxisflip)+'_Td'+str(Tdust_eq_Thydro)
+    label = dir_label+'_o'+str(on)+'_p'+str(pindex)+'_r'+str(ratio)+'_a'+str(amin)+'_'+str(amax)+'_nb'+str(nbin)+'_mode'+str(scat_mode)+'_np'+str('{:.0e}'.format(nb_photons))+'_nc'+str(ncol)+'_z'+str(z_expansion)+'_xf'+str(xaxisflip)+'_Td'+str(Tdust_eq_Thydro)
     
 if RTdust_or_gas == 'gas':
     if widthkms == 0.0:
-        label = dir+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_vkms'+str(vkms)+'_turbvel'+str(turbvel)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_Td'+str(Tdust_eq_Thydro)
+        label = dir_label+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_vkms'+str(vkms)+'_turbvel'+str(turbvel)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_Td'+str(Tdust_eq_Thydro)
     else:
-        label = dir+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_widthkms'+str(widthkms)+'_turbvel'+str(turbvel)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_dustandgas'
+        label = dir_label+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_widthkms'+str(widthkms)+'_turbvel'+str(turbvel)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_dustandgas'
 
 if RTdust_or_gas == 'both':
-    label = dir+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_widthkms'+str(widthkms)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_nb'+str(nbin)+'_mode'+str(scat_mode)+'_dustandgas'
-    
-# name of .fits file where data is output
-# Note that M.label will disentangle dust and gas line calculations
-if plot_tau == 'No':
-    if brightness_temp == 'Yes':
-        image = 'imageTb_'
-    else:
-        image = 'image_'
+    label = dir_label+'_o'+str(on)+'_gas'+str(gasspecies)+'_iline'+str(iline)+'_lmode'+str(lines_mode)+'_ab'+str('{:.0e}'.format(abundance))+'_widthkms'+str(widthkms)+'_nc'+str(ncol)+'_xf'+str(xaxisflip)+'_nb'+str(nbin)+'_mode'+str(scat_mode)+'_dustandgas'
+
+# If model_name provided, use it as the base and skip parameter-derived suffixes
+if (("model_name" in open('params.dat').read()) and (model_name != '#')):
+    outfile = str(model_name)
     if (RTdust_or_gas == 'gas' or RTdust_or_gas == 'both'):
-        # no need for lambda in file's name for gas RT calculations...
-        outfile = image+str(label)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)  
-    if RTdust_or_gas == 'dust':
-        outfile = image+str(label)+'_lbda'+str(wavelength)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)
-        
+        outfile += '_gas'+str(gasspecies)+'_iline'+str(iline)
+    elif RTdust_or_gas == 'dust':
+        outfile += '_lbda'+str(wavelength)
 else:
-    if (RTdust_or_gas == 'gas' or RTdust_or_gas == 'both'):
-        # no need for lambda in file's name for gas RT calculations...
-        outfile = 'tau_'+str(label)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)  
-    if RTdust_or_gas == 'dust':
-        outfile = 'tau_'+str(label)+'_lbda'+str(wavelength)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)
-        
-if secondorder == 'Yes':
-    outfile += '_so'
-if ('bin_small_dust' in open('params.dat').read()) and (bin_small_dust == 'Yes'):
-    outfile += '_bin0'
-if ('dustdens_eq_gasdens' in open('params.dat').read()) and (dustdens_eq_gasdens == 'Yes'):
-    outfile += '_ddeqgd'
-if add_noise == 'Yes':
-    outfile += '_wn'+str(noise_dev_std)
+    # Note that M.label will disentangle dust and gas line calculations
+    if plot_tau == 'No':
+        if brightness_temp == 'Yes':
+            image = 'imageTb_'
+        else:
+            image = 'image_'
+        if (RTdust_or_gas == 'gas' or RTdust_or_gas == 'both'):
+            outfile = image+str(label)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)  
+        if RTdust_or_gas == 'dust':
+            outfile = image+str(label)+'_lbda'+str(wavelength)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)
+    else:
+        if (RTdust_or_gas == 'gas' or RTdust_or_gas == 'both'):
+            outfile = 'tau_'+str(label)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)  
+        if RTdust_or_gas == 'dust':
+            outfile = 'tau_'+str(label)+'_lbda'+str(wavelength)+'_i'+str(inclination)+'_phi'+str(phiangle)+'_PA'+str(posangle)
+
+if model_name == '#':
+    if secondorder == 'Yes':
+        outfile += '_so'
+    if ('bin_small_dust' in open('params.dat').read()) and (bin_small_dust == 'Yes'):
+        outfile += '_bin0'
+    if ('dustdens_eq_gasdens' in open('params.dat').read()) and (dustdens_eq_gasdens == 'Yes'):
+        outfile += '_ddeqgd'
+    if add_noise == 'Yes':
+        outfile += '_wn'+str(noise_dev_std)
     
 outputfitsfile_wholedatacube = outfile+'_all.fits'
 
@@ -312,14 +333,28 @@ if os.path.isfile(outputfitsfile) == False and recalc_rawfits == 'No':
     recalc_rawfits = 'Yes'
 
 if recalc_radmc == 'Yes' and os.path.isfile('image.fits') == True:
-    os.system('rm -f image.fits')
-    if verbose == 'Yes':
-        print('image.fits already existing: I need to erase it!...')
+    # Only remove image.fits if a fresh image.out exists to recreate it from
+    if os.path.isfile('image.out') == True:
+        os.system('rm -f image.fits')
+        if verbose == 'Yes':
+            print('image.fits already existing: I need to erase it!...')
     
 if not('bin_small_dust' in open('params.dat').read()):
     bin_small_dust = 'No'
 if not('dustdens_eq_gasdens' in open('params.dat').read()):
     dustdens_eq_gasdens = 'No'
+
+# Accretion luminosity controls (optional)
+if not('include_accretion_lum' in open('params.dat').read()):
+    include_accretion_lum = 'No'
+if not('mdot' in open('params.dat').read()):
+    mdot = 0.0
+if not('mstar' in open('params.dat').read()):
+    mstar = 1.0
+if ('f' in open('params.dat').read()) and not('accretion_fill_factor' in open('params.dat').read()):
+    accretion_fill_factor = f
+if not('accretion_fill_factor' in open('params.dat').read()):
+    accretion_fill_factor = 0.01
 
     
 # Set of parameters that we only need to read or specify even if

@@ -5,6 +5,7 @@ import numpy as np
 import math
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 
 from ..core.mesh import *
 from ..core.field import *
@@ -226,6 +227,30 @@ def compute_gas_mass_volume_density():
                     rhogascubeh2[j,i,:] = rhogascubeh2_cyl[jcyl,icyl,:]
 
 
+    # Print total gas mass over the RADMC-3D spherical grid
+    try:
+        # rhogascubeh2 has shape (ncol, nrad, nsec) in cm^-3
+        # Build cell volumes in cm^3 using spherical coordinates
+        Redge, Cedge, Aedge = np.meshgrid(par.gas.redge, par.gas.tedge, par.gas.pedge)
+        Redge_cm = Redge * (par.gas.culength*1e2)
+        r2_cm2 = Redge_cm * Redge_cm
+        jac = r2_cm2[:-1,:-1,:-1] * np.sin(Cedge[:-1,:-1,:-1])
+        dr_cm = Redge_cm[:-1,1:,:-1] - Redge_cm[:-1,:-1,:-1]
+        dth = Cedge[1:,:-1,:-1] - Cedge[:-1,:-1,:-1]
+        dph = Aedge[:-1,:-1,1:] - Aedge[:-1,:-1,:-1]
+        cell_vol = jac * dr_cm * dth * dph
+        # Convert number density to mass density with mean molecular weight 2.3
+        rho_mass = rhogascubeh2 * (2.3*par.mp)
+        total_gas_mass = np.sum(rho_mass * cell_vol)
+        if par.verbose == 'Yes':
+            msun = total_gas_mass / par.M_Sun
+            mjup = total_gas_mass / 1.898e30
+            mearth = total_gas_mass / 5.972e27
+            print(f"Total gas mass = {msun:.3e} Msun ({mjup:.3e} MJup, {mearth:.3e} MEarth)")
+    except Exception as _e:
+        if par.verbose == 'Yes':
+            print('warning: could not compute total gas mass:', _e)
+
     print('--------- writing numberdens.binp file ----------')
     # If writing data in an ascii file the ordering should be: nsec, ncol, nrad.
     # We therefore need to swap axes of array gas_temp
@@ -254,6 +279,8 @@ def compute_gas_mass_volume_density():
         
         matplotlib.rcParams.update({'font.size': 20})
         fontcolor='white'
+        outdir = 'disk_diagnostics'
+        os.makedirs(outdir, exist_ok=True)
 
         if par.half_a_disc == 'No':
             midplane_col_index = par.gas.ncol//2-1
@@ -327,7 +354,7 @@ def compute_gas_mass_volume_density():
         cax.xaxis.labelpad = 8
         
         fileout = 'gas_number_density_Rz.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
 
 
         print('--------- b) plotting midplane number density (x,y) ----------')
@@ -362,7 +389,7 @@ def compute_gas_mass_volume_density():
         cax.xaxis.labelpad = 8
         
         fileout = 'gas_number_density_midplane.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -398,7 +425,7 @@ def compute_gas_mass_volume_density():
         cax.xaxis.labelpad = 8
         
         fileout = 'gas_number_density_lower.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -434,7 +461,7 @@ def compute_gas_mass_volume_density():
         cax.xaxis.labelpad = 8
         
         fileout = 'gas_number_density_upper.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
         
@@ -491,6 +518,8 @@ def recompute_gas_mass_volume_density():
         
     matplotlib.rcParams.update({'font.size': 20})
     fontcolor='white'
+    outdir = 'disk_diagnostics'
+    os.makedirs(outdir, exist_ok=True)
 
     if par.half_a_disc == 'No':
         midplane_col_index = par.gas.ncol//2-1
@@ -562,7 +591,7 @@ def recompute_gas_mass_volume_density():
     cax.xaxis.labelpad = 8
         
     fileout = 'gas_number_density_Rz_fzout.png'
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
 
 
     print('--------- b) plotting midplane number density (x,y) ----------')
@@ -597,7 +626,7 @@ def recompute_gas_mass_volume_density():
     cax.xaxis.labelpad = 8
         
     fileout = 'gas_number_density_midplane_fzout.png'
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -633,7 +662,7 @@ def recompute_gas_mass_volume_density():
     cax.xaxis.labelpad = 8
     
     fileout = 'gas_number_density_lower_fzout.png'
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -669,7 +698,7 @@ def recompute_gas_mass_volume_density():
     cax.xaxis.labelpad = 8
     
     fileout = 'gas_number_density_upper_fzout.png'
-    plt.savefig('./'+fileout, dpi=160)
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
 
     

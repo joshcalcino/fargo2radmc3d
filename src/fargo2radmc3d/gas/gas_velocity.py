@@ -8,6 +8,7 @@ from ..core.field import *
 
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 
 # =========================
 # Microturbulent line broadening
@@ -62,7 +63,11 @@ def compute_gas_velocity():
         vrad3D   *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
 
         vphi3D    = Field(field='gasvx'+str(par.on)+'.dat', directory=par.dir).data  # code units
-        vphi3D0   = Field(field='gasvx0.dat', directory=par.dir).data  # code units
+        init_vphi_path = os.path.join(par.dir if par.dir.endswith('/') == False else par.dir[:-1], 'gasvx0.dat')
+        if os.path.isfile(init_vphi_path):
+            vphi3D0 = Field(field='gasvx0.dat', directory=par.dir).data  # code units
+        else:
+            vphi3D0 = np.zeros_like(vphi3D)
 
         f1, xpla, ypla, f4, f5, f6, f7, f8, date, omega = np.loadtxt(par.dir+"/planet0.dat",unpack=True)
         omegaframe  = omega[par.on]
@@ -195,6 +200,8 @@ def compute_gas_velocity():
         
         matplotlib.rcParams.update({'font.size': 20})
         fontcolor='white'
+        outdir = 'disk_diagnostics'
+        os.makedirs(outdir, exist_ok=True)
 
         if par.half_a_disc == 'No':
             midplane_col_index = par.gas.ncol//2-1
@@ -256,7 +263,7 @@ def compute_gas_velocity():
         cax.xaxis.labelpad = 8
         
         fileout = 'vrad_midplane.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -289,7 +296,7 @@ def compute_gas_velocity():
         cax.xaxis.labelpad = 8
         
         fileout = 'vphi_midplane.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -322,7 +329,7 @@ def compute_gas_velocity():
         cax.xaxis.labelpad = 8
         
         fileout = 'vvert_upper.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
 
@@ -483,7 +490,7 @@ def compute_gas_velocity():
         cax.xaxis.labelpad = 8
         
         fileout = 'vlos_midplane.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
         # ---------------------------------
@@ -520,7 +527,7 @@ def compute_gas_velocity():
         cax.xaxis.labelpad = 8
         
         fileout = 'vlos_residual_midplane.png'
-        plt.savefig('./'+fileout, dpi=160)
+        plt.savefig(os.path.join(outdir, fileout), dpi=160)
         plt.close(fig)  # close figure as we reopen figure at every output number
 
     if par.hydro2D == 'Yes':

@@ -174,6 +174,19 @@ def plot_opacities(species='mix_2species_porous',amin=0.1,amax=1000,nbin=10,lbda
     plt.legend()
 
     plt.ylim(absorption1.min(),(absorption1+scattering1).max())
-    filesaveopac = 'opacities_'+species+'.pdf'
+    filesaveopac = 'opacities_'+species+'.png'
     plt.savefig('./'+filesaveopac, bbox_inches='tight', dpi=160)
     plt.clf()
+
+
+def ensure_opacity_files(folder='dust'):
+    # Compute/read opacity files in current working directory only
+    prefix = 'dustkapscatmat_' if par.scat_mode >= 3 else 'dustkappa_'
+    need = (par.recalc_opac == 'Yes')
+    if not need:
+        for i in range(int(par.nbin)):
+            if not os.path.isfile(f'{prefix}{par.species}{i}.inp'):
+                need = True
+                break
+    if need:
+        compute_dust_opacities()

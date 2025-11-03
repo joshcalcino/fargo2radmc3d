@@ -267,10 +267,12 @@ def plot_gas_temperature():
         fileout = 'gas_temperature_Rz.png'
     if (par.RTdust_or_gas == 'dust' or par.RTdust_or_gas == 'both'):
         cax.set_xlabel('dust temperature '+r'[K]')
-        fileout = 'dust_temperature_Rz.pdf'
+        fileout = 'dust_temperature_Rz.png'
     cax.xaxis.labelpad = 8
-            
-    plt.savefig('./'+fileout, dpi=160)
+    outdir = 'temperature_diagnostics'
+    os.makedirs(outdir, exist_ok=True)
+    
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
             
             
@@ -307,10 +309,12 @@ def plot_gas_temperature():
         fileout = 'gas_temperature_surface.png'
     if (par.RTdust_or_gas == 'dust' or par.RTdust_or_gas == 'both'):
         cax.set_xlabel('dust surface temperature '+r'[K]')
-        fileout = 'dust_temperature_surface.pdf'                
+        fileout = 'dust_temperature_surface.png'                
     cax.xaxis.labelpad = 8
-            
-    plt.savefig('./'+fileout, dpi=160)
+    outdir = 'temperature_diagnostics'
+    os.makedirs(outdir, exist_ok=True)
+    
+    plt.savefig(os.path.join(outdir, fileout), dpi=160)
     plt.close(fig)  # close figure as we reopen figure at every output number
         
     del gas_temp

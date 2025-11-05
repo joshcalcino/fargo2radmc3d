@@ -225,8 +225,6 @@ def compute_gas_velocity():
 
         print('--------- d) plotting line-of-sight velocity in sky plane ----------')
 
-        vlos_disc_plane = np.zeros((par.gas.nrad,par.gas.nsec))
-
         # sky-plane x- and y- coordinates in arcseconds
         Xs = np.zeros((par.nbpixels,par.nbpixels))
         Ys = np.zeros((par.nbpixels,par.nbpixels))

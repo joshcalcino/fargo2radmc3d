@@ -1,5 +1,9 @@
 Forked from https://github.com/charango/fargo2radmc3d and haphazardly modified to be a bit more like a module with finer control in a more pythonic manner, not depending on anything except radmc3d to be installed on your computer (awk/gawk no longer required). Includes a few additional features, such as CO chemistry based on Pinte+2018, and some examples. 
 
+To install simply clone this repository and run: 
+
+pip install -e . 
+
 # fargo2radmc3d
 It is a python program that computes synthetic images of gas line emission and/or of dust continuum emission, or of polarised scattered light with RADMC-3D from the results of 2D or 3D gas+dust hydrodynamical simulations carried out with the codes Dusty FARGO-ADSG or FARGO-3D. The program can be easily adapted to use the outputs of a different code.
 

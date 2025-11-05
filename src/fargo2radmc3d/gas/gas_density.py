@@ -9,7 +9,8 @@ import os
 
 from ..core.mesh import *
 from ..core.field import *
-
+from ..chemistry.freezeout import apply_gas_freezeout
+from ..core.plot_utils import species_label, rz_edges_au, xy_edges_au, plot_rz_scalar_field, plot_xy_scalar_field
 
 # =========================
 # Compute gas mass volume density on RADMC 3D grid
@@ -80,22 +81,8 @@ def compute_gas_mass_volume_density():
                         if (integral_z_to_inf < 1e21):
                             rhogascube[j,i,k] *= 1e-5
         
-        # Simple modelling of freezeout: drop CO number density whereever
-        # azimuthally-averaged gas temperature falls below 19K:
         if par.freezeout == 'Yes' and par.Tdust_eq_Thydro == 'Yes':
-            print('--------- apply freezeout model ----------')
-            buf = np.fromfile('gas_tempcyl.binp', dtype='float64')
-            buf = buf[3:]
-            gas_temp = buf.reshape(par.gas.ncol,par.gas.nrad,par.gas.nsec) # ncol nrad nsec
-
-            axitemp = np.sum(gas_temp,axis=2)/par.gas.nsec  # nver nrad
-            for j in range(par.gas.ncol):
-                for i in range(par.gas.nrad):
-                    if axitemp[j,i] < 19.0:
-                        rhogascube[j,i,:] *= 1e-5
-
-            os.system('rm -f gas_tempcyl.binp')
-            del buf, gas_temp
+            rhogascube, _ = apply_gas_freezeout(rhogascube=rhogascube, rhogascube_cyl=None, temp_source='hydro', threshold_K=19.0, eps=1e-5)
 
     
     # --------------------------
@@ -158,22 +145,8 @@ def compute_gas_mass_volume_density():
                             rhogascube_cyl[j,i,k] *= 1e-5
 
             
-        # Simple modelling of freezeout: drop CO number density whereever
-        # azimuthally-averaged gas temperature falls below 19K:
         if par.freezeout == 'Yes' and par.Tdust_eq_Thydro == 'Yes':
-            print('--------- apply freezeout model ----------')
-            buf = np.fromfile('gas_tempcyl.binp', dtype='float64')
-            buf = buf[3:]
-            gas_temp_cyl = buf.reshape(par.gas.nver,par.gas.nrad,par.gas.nsec) # nver nrad nsec
-
-            axitemp = np.sum(gas_temp_cyl,axis=2)/par.gas.nsec  # nver nrad
-            for j in range(par.gas.nver):
-                for i in range(par.gas.nrad):
-                    if axitemp[j,i] < 19.0:
-                        rhogascube_cyl[j,i,:] *= 1e-5
-
-            os.system('rm -f gas_tempcyl.binp')
-            del buf, gas_temp_cyl
+            _, rhogascube_cyl = apply_gas_freezeout(rhogascube=None, rhogascube_cyl=rhogascube_cyl, temp_source='hydro', threshold_K=19.0, eps=1e-5)
 
             
         # then, sweep through the spherical grid
@@ -272,13 +245,6 @@ def compute_gas_mass_volume_density():
         
     # plot azimuthally-averaged density vs. radius and colatitude
     if par.plot_gas_quantities == 'Yes':
-        
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-        import matplotlib.ticker as ticker
-        from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
-        
-        matplotlib.rcParams.update({'font.size': 20})
-        fontcolor='white'
         outdir = 'disk_diagnostics'
         os.makedirs(outdir, exist_ok=True)
 
@@ -287,182 +253,43 @@ def compute_gas_mass_volume_density():
         else:
             midplane_col_index = par.gas.ncol-1
 
-        # azimuthally-averaged number density:   # nsec ncol nrad
-        axidens = np.sum(rhogascube,axis=0)/par.gas.nsec  # (nol,nrad)
+        axidens = np.sum(rhogascube,axis=0)/par.gas.nsec
+        R, Z = rz_edges_au(par)
 
-        radius_matrix, theta_matrix = np.meshgrid(par.gas.redge,par.gas.tedge)
-        R = radius_matrix * np.sin(theta_matrix) *par.gas.culength/1.5e11 # in au
-        Z = radius_matrix * np.cos(theta_matrix) *par.gas.culength/1.5e11 # in au
+        midplane_dens = rhogascube[:,midplane_col_index,:]
+        midplane_dens = np.swapaxes(midplane_dens, 0, 1)
+        upplane_dens = rhogascube[:,par.gas.ncol-1,:]
+        upplane_dens = np.swapaxes(upplane_dens, 0, 1)
+        lowplane_dens = rhogascube[:,1,:]
+        lowplane_dens = np.swapaxes(lowplane_dens, 0, 1)
 
-        # midplane number density:
-        midplane_dens = rhogascube[:,midplane_col_index,:]  # (nsec,nrad)
-        midplane_dens = np.swapaxes(midplane_dens, 0, 1)   # (nrad,nsec)
+        X, Y = xy_edges_au(par)
+        strgas = species_label(par.gasspecies)
 
-        # upper plane number density:
-        upplane_dens = rhogascube[:,par.gas.ncol-1,:]  # (nsec,nrad)
-        upplane_dens = np.swapaxes(upplane_dens, 0, 1)   # (nrad,nsec)
-
-        # lower plane number density:
-        lowplane_dens = rhogascube[:,1,:]  # (nsec,nrad)
-        lowplane_dens = np.swapaxes(lowplane_dens, 0, 1)   # (nrad,nsec)
-        
-        radius_matrix, theta_matrix = np.meshgrid(par.gas.redge,par.gas.pedge)
-        X = radius_matrix * np.cos(theta_matrix) *par.gas.culength/1.5e11 # in au
-        Y = radius_matrix * np.sin(theta_matrix) *par.gas.culength/1.5e11 # in au
-
-        # common plot features
-        if par.gasspecies == 'co':
-            strgas = r'$^{12}$CO'
-        elif par.gasspecies == '13co':
-            strgas = r'$^{13}$CO'
-        elif par.gasspecies == 'c17o':
-            strgas = r'C$^{17}$O'
-        elif par.gasspecies == 'c18o':
-            strgas = r'C$^{18}$O'
-        else:
-            strgas = str(par.gasspecies).upper()  # capital letters
-
-        
         print('--------- a) plotting azimuthally-averaged number density (R,z) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-
-        ax.set_xlabel('Radius [au]')
-        ax.set_ylabel('Altitude [au]')
-        ax.set_ylim(Z.min(),Z.max())
-        ax.set_xlim(R.min(),R.max())
-
-        #axidens /= axidens.max()  # cuidadin!!
-
         mynorm = matplotlib.colors.LogNorm(vmin=axidens.min(),vmax=axidens.max())
-        CF = ax.pcolormesh(R,Z,axidens,cmap='nipy_spectral',norm=mynorm)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-        cax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, numticks=10))
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' number density '+r'[cm$^{-3}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'gas_number_density_Rz.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-
+        plot_rz_scalar_field(R=R, Z=Z, data2d=axidens, cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_Rz.png')
 
         print('--------- b) plotting midplane number density (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-
         if midplane_dens.max()/midplane_dens.min() > 1e3:
             mynorm = matplotlib.colors.LogNorm(vmin=1e-3*midplane_dens.max(),vmax=midplane_dens.max())
         else:
             mynorm = matplotlib.colors.LogNorm(vmin=midplane_dens.min(),vmax=midplane_dens.max())
-        midplane_dens = np.transpose(midplane_dens)
-        CF = ax.pcolormesh(X,Y,midplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' midplane number density '+r'[cm$^{-3}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'gas_number_density_midplane.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
-
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(midplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' midplane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_midplane.png')
 
         print('--------- c) plotting lower plane number density (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-
         if lowplane_dens.max()/lowplane_dens.min() > 1e3:
             mynorm = matplotlib.colors.LogNorm(vmin=1e-3*lowplane_dens.max(),vmax=lowplane_dens.max())
         else:
             mynorm = matplotlib.colors.LogNorm(vmin=lowplane_dens.min(),vmax=lowplane_dens.max())
-        lowplane_dens = np.transpose(lowplane_dens)
-        CF = ax.pcolormesh(X,Y,lowplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' lower plane number density '+r'[cm$^{-3}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'gas_number_density_lower.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
-
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(lowplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' lower plane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_lower.png')
 
         print('--------- d) plotting upper plane number density (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-
         if upplane_dens.max()/upplane_dens.min() > 1e3:
             mynorm = matplotlib.colors.LogNorm(vmin=1e-3*upplane_dens.max(),vmax=upplane_dens.max())
         else:
             mynorm = matplotlib.colors.LogNorm(vmin=upplane_dens.min(),vmax=upplane_dens.max())
-        upplane_dens = np.transpose(upplane_dens)
-        CF = ax.pcolormesh(X,Y,upplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' upper plane number density '+r'[cm$^{-3}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'gas_number_density_upper.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(upplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' upper plane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_upper.png')
 
         
     # print max of gas mass volume density at each colatitude
@@ -485,22 +312,15 @@ def recompute_gas_mass_volume_density():
     # a thermal MC run with RADMC-3D
     Temp = np.fromfile('dust_temperature.bdat', dtype='float64')
     Temp = Temp[4:]
-    Temp = Temp.reshape(par.nbin,par.gas.nsec,par.gas.ncol,par.gas.nrad) # nbin nsec ncol nrad
+    Temp = Temp.reshape(par.nbin,par.gas.nsec,par.gas.ncol,par.gas.nrad)
     gastemp = Temp[par.nbin-1,:,:,:]
-    
-    # Then read again dust_density.binp file
+
     gasfile = 'numberdens_'+str(par.gasspecies)+'.binp'
     dens = np.fromfile(gasfile, dtype='float64')
     rhogascube = dens[3:]
     rhogascube = rhogascube.reshape(par.gas.nsec,par.gas.ncol,par.gas.nrad) # nsec ncol nrad
 
-    # all relevant quantities below are in in cgs
-    for k in range(par.gas.nsec):
-        for j in range(par.gas.ncol):
-            for i in range(par.gas.nrad):
-                if gastemp[k,j,i] < 30.0:
-                    print(gastemp[k,j,i])
-                    rhogascube[k,j,i] *= 1e-5
+    rhogascube, _ = apply_gas_freezeout(rhogascube=rhogascube, rhogascube_cyl=None, temp_source='dust', threshold_K=30.0, eps=1e-5, dust_bin=par.nbin-1)
 
     # Binary output files
     GASOUT = open('numberdens_%s.binp'%par.gasspecies,'wb')    # binary format
@@ -512,12 +332,6 @@ def recompute_gas_mass_volume_density():
     GASOUT.close()
 
     # replot gas number density
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    import matplotlib.ticker as ticker
-    from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
-        
-    matplotlib.rcParams.update({'font.size': 20})
-    fontcolor='white'
     outdir = 'disk_diagnostics'
     os.makedirs(outdir, exist_ok=True)
 
@@ -526,180 +340,43 @@ def recompute_gas_mass_volume_density():
     else:
         midplane_col_index = par.gas.ncol-1
 
-    # azimuthally-averaged number density:   # nsec ncol nrad
-    axidens = np.sum(rhogascube,axis=0)/par.gas.nsec  # (nol,nrad)
+    axidens = np.sum(rhogascube,axis=0)/par.gas.nsec
+    R, Z = rz_edges_au(par)
 
-    radius_matrix, theta_matrix = np.meshgrid(par.gas.redge,par.gas.tedge)
-    R = radius_matrix * np.sin(theta_matrix) *par.gas.culength/1.5e11 # in au
-    Z = radius_matrix * np.cos(theta_matrix) *par.gas.culength/1.5e11 # in au
+    midplane_dens = rhogascube[:,midplane_col_index,:]
+    midplane_dens = np.swapaxes(midplane_dens, 0, 1)
+    upplane_dens = rhogascube[:,par.gas.ncol-1,:]
+    upplane_dens = np.swapaxes(upplane_dens, 0, 1)
+    lowplane_dens = rhogascube[:,1,:]
+    lowplane_dens = np.swapaxes(lowplane_dens, 0, 1)
 
-    # midplane number density:
-    midplane_dens = rhogascube[:,midplane_col_index,:]  # (nsec,nrad)
-    midplane_dens = np.swapaxes(midplane_dens, 0, 1)   # (nrad,nsec)
+    X, Y = xy_edges_au(par)
+    strgas = species_label(par.gasspecies)
 
-    # upper plane number density:
-    upplane_dens = rhogascube[:,par.gas.ncol-1,:]  # (nsec,nrad)
-    upplane_dens = np.swapaxes(upplane_dens, 0, 1)   # (nrad,nsec)
-
-    # lower plane number density:
-    lowplane_dens = rhogascube[:,1,:]  # (nsec,nrad)
-    lowplane_dens = np.swapaxes(lowplane_dens, 0, 1)   # (nrad,nsec)
-        
-    radius_matrix, theta_matrix = np.meshgrid(par.gas.redge,par.gas.pedge)
-    X = radius_matrix * np.cos(theta_matrix) *par.gas.culength/1.5e11 # in au
-    Y = radius_matrix * np.sin(theta_matrix) *par.gas.culength/1.5e11 # in au
-
-    # common plot features
-    if par.gasspecies == 'co':
-        strgas = r'$^{12}$CO'
-    elif par.gasspecies == '13co':
-        strgas = r'$^{13}$CO'
-    elif par.gasspecies == 'c17o':
-        strgas = r'C$^{17}$O'
-    elif par.gasspecies == 'c18o':
-        strgas = r'C$^{18}$O'
-    else:
-        strgas = str(par.gasspecies).upper()  # capital letters
-
-        
     print('--------- a) plotting azimuthally-averaged number density (R,z) ----------')
-
-    fig = plt.figure(figsize=(8.,8.))
-    plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-    ax = plt.gca()
-    ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-    ax.tick_params(axis='x', which='minor', top=True)
-    ax.tick_params(axis='y', which='minor', right=True)
-
-    ax.set_xlabel('Radius [au]')
-    ax.set_ylabel('Altitude [au]')
-    ax.set_ylim(Z.min(),Z.max())
-    ax.set_xlim(R.min(),R.max())
-
     mynorm = matplotlib.colors.LogNorm(vmin=axidens.min(),vmax=axidens.max())
-    CF = ax.pcolormesh(R,Z,axidens,cmap='nipy_spectral',norm=mynorm)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("top", size="2.5%", pad=0.12)
-    cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-    cax.xaxis.tick_top()
-    cax.xaxis.set_tick_params(labelsize=20, direction='out')
-    cax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, numticks=10))
-
-    cax.xaxis.set_label_position('top')
-    cax.set_xlabel(strgas+' number density '+r'[cm$^{-3}$]')
-    cax.xaxis.labelpad = 8
-        
-    fileout = 'gas_number_density_Rz_fzout.png'
-    plt.savefig(os.path.join(outdir, fileout), dpi=160)
-
+    plot_rz_scalar_field(R=R, Z=Z, data2d=axidens, cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_Rz_fzout.png')
 
     print('--------- b) plotting midplane number density (x,y) ----------')
-
-    fig = plt.figure(figsize=(8.,8.))
-    plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-    ax = plt.gca()
-    ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-    ax.tick_params(axis='x', which='minor', top=True)
-    ax.tick_params(axis='y', which='minor', right=True)
-
-    ax.set_xlabel('x [au]')
-    ax.set_ylabel('y [au]')
-    ax.set_ylim(Y.min(),Y.max())
-    ax.set_xlim(X.min(),X.max())
-
     if midplane_dens.max()/midplane_dens.min() > 1e3:
         mynorm = matplotlib.colors.LogNorm(vmin=1e-3*midplane_dens.max(),vmax=midplane_dens.max())
     else:
         mynorm = matplotlib.colors.LogNorm(vmin=midplane_dens.min(),vmax=midplane_dens.max())
-    midplane_dens = np.transpose(midplane_dens)
-    CF = ax.pcolormesh(X,Y,midplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("top", size="2.5%", pad=0.12)
-    cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-    cax.xaxis.tick_top()
-    cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-    cax.xaxis.set_label_position('top')
-    cax.set_xlabel(strgas+' midplane number density '+r'[cm$^{-3}$]')
-    cax.xaxis.labelpad = 8
-        
-    fileout = 'gas_number_density_midplane_fzout.png'
-    plt.savefig(os.path.join(outdir, fileout), dpi=160)
-    plt.close(fig)  # close figure as we reopen figure at every output number
-
+    plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(midplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' midplane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_midplane_fzout.png')
 
     print('--------- c) plotting lower plane number density (x,y) ----------')
-
-    fig = plt.figure(figsize=(8.,8.))
-    plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-    ax = plt.gca()
-    ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-    ax.tick_params(axis='x', which='minor', top=True)
-    ax.tick_params(axis='y', which='minor', right=True)
-
-    ax.set_xlabel('x [au]')
-    ax.set_ylabel('y [au]')
-    ax.set_ylim(Y.min(),Y.max())
-    ax.set_xlim(X.min(),X.max())
-
     if lowplane_dens.max()/lowplane_dens.min() > 1e3:
         mynorm = matplotlib.colors.LogNorm(vmin=1e-3*lowplane_dens.max(),vmax=lowplane_dens.max())
     else:
         mynorm = matplotlib.colors.LogNorm(vmin=lowplane_dens.min(),vmax=lowplane_dens.max())
-    lowplane_dens = np.transpose(lowplane_dens)
-    CF = ax.pcolormesh(X,Y,lowplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("top", size="2.5%", pad=0.12)
-    cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-    cax.xaxis.tick_top()
-    cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-    cax.xaxis.set_label_position('top')
-    cax.set_xlabel(strgas+' lower plane number density '+r'[cm$^{-3}$]')
-    cax.xaxis.labelpad = 8
-    
-    fileout = 'gas_number_density_lower_fzout.png'
-    plt.savefig(os.path.join(outdir, fileout), dpi=160)
-    plt.close(fig)  # close figure as we reopen figure at every output number
-
+    plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(lowplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' lower plane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_lower_fzout.png')
 
     print('--------- d) plotting upper plane number density (x,y) ----------')
-
-    fig = plt.figure(figsize=(8.,8.))
-    plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-    ax = plt.gca()
-    ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-    ax.tick_params(axis='x', which='minor', top=True)
-    ax.tick_params(axis='y', which='minor', right=True)
-
-    ax.set_xlabel('x [au]')
-    ax.set_ylabel('y [au]')
-    ax.set_ylim(Y.min(),Y.max())
-    ax.set_xlim(X.min(),X.max())
-
     if upplane_dens.max()/upplane_dens.min() > 1e3:
         mynorm = matplotlib.colors.LogNorm(vmin=1e-3*upplane_dens.max(),vmax=upplane_dens.max())
     else:
         mynorm = matplotlib.colors.LogNorm(vmin=upplane_dens.min(),vmax=upplane_dens.max())
-    upplane_dens = np.transpose(upplane_dens)
-    CF = ax.pcolormesh(X,Y,upplane_dens,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("top", size="2.5%", pad=0.12)
-    cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-    cax.xaxis.tick_top()
-    cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-    cax.xaxis.set_label_position('top')
-    cax.set_xlabel(strgas+' upper plane number density '+r'[cm$^{-3}$]')
-    cax.xaxis.labelpad = 8
-    
-    fileout = 'gas_number_density_upper_fzout.png'
-    plt.savefig(os.path.join(outdir, fileout), dpi=160)
-    plt.close(fig)  # close figure as we reopen figure at every output number
+    plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(upplane_dens), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' upper plane number density '+r'[cm$^{-3}$]', outdir=outdir, filename='gas_number_density_upper_fzout.png')
 
     
     # finally delete memory

@@ -53,6 +53,34 @@ def write_radmc3d_script():
     os.system('chmod a+x script_radmc')
 
 
+def write_mctherm_script():
+    """Write a simple mctherm runner script (mctherm.sh) and chmod +x.
+    If write_meanint == Yes, also prepare mcmono wavelengths at the working
+    wavelength and append a mcmono call to the script.
+    """
+    if par.verbose == 'Yes':
+        print('writing mctherm.sh')
+    with open('mctherm.sh', 'w') as f:
+        f.write('#!/usr/bin/env bash\n')
+        f.write('radmc3d mctherm\n')
+        if str(getattr(par, 'write_meanint', 'No')).lower() == 'yes':
+            try:
+                # working wavelength is in mm in params; convert to micron for mcmono
+                write_mcmono_wavelengths([float(par.wavelength) * 1e3])
+                f.write('radmc3d mcmono\n')
+            except Exception:
+                pass
+        # automatic UV mcmono for Pinte photodissociation chemistry
+        try:
+            phot = str(getattr(par, 'photodissociation', 'No')).lower()
+            if phot in ('pinte2018', 'pinte'):
+                lam = np.linspace(0.0912, 0.205, 100)
+                write_mcmono_wavelengths(lam)
+                f.write('radmc3d mcmono\n')
+        except Exception:
+            pass
+    os.chmod('mctherm.sh', 0o755)
+
 # ---------------------------------------
 # write spatial grid in file amr_grid.inp
 # ---------------------------------------
@@ -116,6 +144,17 @@ def write_wavelength(wmin=0.1, wmax=10000.0):
     for i in range(Nw):
         wave.write(str(waves[i])+'\n')
     wave.close()
+
+# -----------------------------------------
+# write mcmono_wavelength_micron.inp (single helper)
+# -----------------------------------------
+def write_mcmono_wavelengths(waves_um):
+    """Write RADMC-3D mcmono_wavelength_micron.inp from an iterable of wavelengths in micron."""
+    arr = np.array(list(waves_um), dtype=float)
+    with open('mcmono_wavelength_micron.inp', 'w') as f:
+        f.write(f"{arr.size}\n")
+        for w in arr:
+            f.write(f"{w}\n")
 
 
 def _B_lambda(lam_cm: np.ndarray, T: float) -> np.ndarray:

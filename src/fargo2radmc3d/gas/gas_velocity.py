@@ -9,6 +9,7 @@ from ..core.field import *
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+from ..core.plot_utils import xy_edges_au, plot_xy_scalar_field, plot_sky_image, species_label
 
 # =========================
 # Microturbulent line broadening
@@ -193,13 +194,6 @@ def compute_gas_velocity():
 
     # finally output plots of the gas velocity
     if par.plot_gas_quantities == 'Yes':
-        
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-        import matplotlib.ticker as ticker
-        from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator, LogLocator, LogFormatter)
-        
-        matplotlib.rcParams.update({'font.size': 20})
-        fontcolor='white'
         outdir = 'disk_diagnostics'
         os.makedirs(outdir, exist_ok=True)
 
@@ -208,129 +202,25 @@ def compute_gas_velocity():
         else:
             midplane_col_index = par.gas.ncol-1
 
-        # midplane radial velocity:
-        vrmid = vrad3D[midplane_col_index,:,:]/1e5 # nrad, nsec   # in km/s
+        vrmid = vrad3D[midplane_col_index,:,:]/1e5
+        vtmid  = vphi3D[midplane_col_index,:,:]/1e5
+        vtmid0 = vphi3D0[midplane_col_index,:,:]/1e5
+        vvupper  = vtheta3D[par.gas.ncol-1,:,:]/1e5
 
-        # midplane azimuthal velocity:
-        vtmid  = vphi3D[midplane_col_index,:,:]/1e5 # nrad, nsec   # in km/s
-        vtmid0 = vphi3D0[midplane_col_index,:,:]/1e5 # nrad, nsec   # in km/s
+        X, Y = xy_edges_au(par)
+        strgas = species_label(par.gasspecies)
 
-        # upper vertical velocity:
-        vvupper  = vtheta3D[par.gas.ncol-1,:,:]/1e5 # nrad, nsec   # in km/s
-            
-        radius_matrix, theta_matrix = np.meshgrid(par.gas.redge,par.gas.pedge)
-        X = radius_matrix * np.cos(theta_matrix) *par.gas.culength/1.5e11 # in au
-        Y = radius_matrix * np.sin(theta_matrix) *par.gas.culength/1.5e11 # in au
-        
-        # common plot features
-        if par.gasspecies == 'co':
-            strgas = r'$^{12}$CO'
-        elif par.gasspecies == '13co':
-            strgas = r'$^{13}$CO'
-        elif par.gasspecies == 'c17o':
-            strgas = r'C$^{17}$O'
-        elif par.gasspecies == 'c18o':
-            strgas = r'C$^{18}$O'
-        else:
-            strgas = str(par.gasspecies).upper()  # capital letters
-            
         print('--------- a) plotting midplane radial velocity (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-        
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-            
-        mynorm = matplotlib.colors.Normalize(vmin=vrmid.min(),vmax=vrmid.max())
-        vrmid = np.transpose(vrmid)
-        CF = ax.pcolormesh(X,Y,vrmid,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' midplane radial velocity '+r'[km s$^{-1}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'vrad_midplane.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
-
+        mynorm = matplotlib.colors.Normalize(vmin=vrmid.min(), vmax=vrmid.max())
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(vrmid), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' midplane radial velocity '+r'[km s$^{-1}$]', outdir=outdir, filename='vrad_midplane.png')
 
         print('--------- b) plotting midplane azimuthal velocity (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-        
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-            
-        mynorm = matplotlib.colors.Normalize(vmin=vtmid.min(),vmax=vtmid.max())
-        vtmid = np.transpose(vtmid)
-        CF = ax.pcolormesh(X,Y,vtmid,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' midplane azimuthal velocity '+r'[km s$^{-1}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'vphi_midplane.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
-
+        mynorm = matplotlib.colors.Normalize(vmin=vtmid.min(), vmax=vtmid.max())
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(vtmid), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' midplane azimuthal velocity '+r'[km s$^{-1}$]', outdir=outdir, filename='vphi_midplane.png')
 
         print('--------- c) plotting upper vertical velocity (x,y) ----------')
-
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.92, top=0.88, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.tick_params(axis='x', which='minor', top=True)
-        ax.tick_params(axis='y', which='minor', right=True)
-        
-        ax.set_xlabel('x [au]')
-        ax.set_ylabel('y [au]')
-        ax.set_ylim(Y.min(),Y.max())
-        ax.set_xlim(X.min(),X.max())
-            
-        mynorm = matplotlib.colors.Normalize(vmin=vvupper.min(),vmax=vvupper.max())
-        vvupper = np.transpose(vvupper)
-        CF = ax.pcolormesh(X,Y,vvupper,cmap='nipy_spectral',norm=mynorm,rasterized=True)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel(strgas+' above vertical velocity '+r'[km s$^{-1}$]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'vvert_upper.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
+        mynorm = matplotlib.colors.Normalize(vmin=vvupper.min(), vmax=vvupper.max())
+        plot_xy_scalar_field(X=X, Y=Y, data2d=np.transpose(vvupper), cmap='nipy_spectral', norm=mynorm, cbar_label=strgas+' above vertical velocity '+r'[km s$^{-1}$]', outdir=outdir, filename='vvert_upper.png')
 
 
         print('--------- d) plotting line-of-sight velocity in sky plane ----------')
@@ -458,77 +348,16 @@ def compute_gas_velocity():
         print('min and max of v_los = ',v_los.min(),v_los.max())
         print('min and max of v_los_residual = ',v_los_residual.min(),v_los_residual.max())
 
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.94, top=0.90, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.xaxis.set_major_locator(plt.MaxNLocator(7))
-        ax.yaxis.set_major_locator(plt.MaxNLocator(7))
-        
-        ax.set_xlabel('RA offset [arcsec]')
-        ax.set_ylabel('Dec offset [arcsec]')
-        ax.set_ylim(-maxXsYs,maxXsYs)
-        ax.set_xlim(maxXsYs,-maxXsYs)
-
-        #mynorm = matplotlib.colors.Normalize(vmin=v_los.min(),vmax=v_los.max())
-        vlosabs = np.maximum(np.abs(v_los.min()),np.abs(v_los.max()))
-        mynorm = matplotlib.colors.Normalize(vmin=-vlosabs,vmax=vlosabs)
-        CF = ax.imshow(v_los, cmap='RdBu_r', origin='lower', interpolation='bilinear', extent=[-maxXsYs,maxXsYs,-maxXsYs,maxXsYs], norm=mynorm, aspect='auto')
-        #ax.contour(v_los,levels=10,color='black', linestyles='-',extent=[-maxXsYs,maxXsYs,-maxXsYs,maxXsYs])
-
-        # Add + sign at the origin
-        ax.plot(0.0,0.0,'+',color='white',markersize=10)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel('Disc midplane line of sight velocity [km/s]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'vlos_midplane.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
+        vlosabs = np.maximum(np.abs(v_los.min()), np.abs(v_los.max()))
+        mynorm = matplotlib.colors.Normalize(vmin=-vlosabs, vmax=vlosabs)
+        plot_sky_image(data2d=v_los, extent=[-maxXsYs, maxXsYs, -maxXsYs, maxXsYs], cmap='RdBu_r', norm=mynorm, cbar_label='Disc midplane line of sight velocity [km/s]', outdir=outdir, filename='vlos_midplane.png', draw_origin_marker=True)
 
         # ---------------------------------
         # figure with residual los velocity
         # ---------------------------------
-        fig = plt.figure(figsize=(8.,8.))
-        plt.subplots_adjust(left=0.17, right=0.94, top=0.90, bottom=0.1)
-        ax = plt.gca()
-        ax.tick_params(top='on', right='on', length = 5, width=1.0, direction='out')
-        ax.xaxis.set_major_locator(plt.MaxNLocator(7))
-        ax.yaxis.set_major_locator(plt.MaxNLocator(7))
-        
-        ax.set_xlabel('RA offset [arcsec]')
-        ax.set_ylabel('Dec offset [arcsec]')
-        ax.set_ylim(-maxXsYs,maxXsYs)
-        ax.set_xlim(maxXsYs,-maxXsYs)
-
-        vlosabs = np.maximum(np.abs(v_los_residual.min()),np.abs(v_los_residual.max()))
-        mynorm = matplotlib.colors.Normalize(vmin=-vlosabs,vmax=vlosabs)
-        CF = ax.imshow(v_los_residual, cmap='RdBu_r', origin='lower', interpolation='bilinear', extent=[-maxXsYs,maxXsYs,-maxXsYs,maxXsYs], norm=mynorm, aspect='auto')
-        #ax.contour(v_los,levels=10,color='black', linestyles='-',extent=[-maxXsYs,maxXsYs,-maxXsYs,maxXsYs])
-
-        # Add + sign at the origin
-        ax.plot(0.0,0.0,'+',color='white',markersize=10)
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="2.5%", pad=0.12)
-        cb =  plt.colorbar(CF, cax=cax, orientation='horizontal')
-        cax.xaxis.tick_top()
-        cax.xaxis.set_tick_params(labelsize=20, direction='out')
-
-        cax.xaxis.set_label_position('top')
-        cax.set_xlabel('Disc midplane line of sight residual  velocity [km/s]')
-        cax.xaxis.labelpad = 8
-        
-        fileout = 'vlos_residual_midplane.png'
-        plt.savefig(os.path.join(outdir, fileout), dpi=160)
-        plt.close(fig)  # close figure as we reopen figure at every output number
+        vlosabs = np.maximum(np.abs(v_los_residual.min()), np.abs(v_los_residual.max()))
+        mynorm = matplotlib.colors.Normalize(vmin=-vlosabs, vmax=vlosabs)
+        plot_sky_image(data2d=v_los_residual, extent=[-maxXsYs, maxXsYs, -maxXsYs, maxXsYs], cmap='RdBu_r', norm=mynorm, cbar_label='Disc midplane line of sight residual  velocity [km/s]', outdir=outdir, filename='vlos_residual_midplane.png', draw_origin_marker=True)
 
     if par.hydro2D == 'Yes':
         del vrad3D_cyl, vphi3D_cyl, vphi3D0_cyl

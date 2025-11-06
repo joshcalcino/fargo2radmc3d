@@ -208,7 +208,7 @@ if recalc_radmc == 'Yes':
     recalc_fluxmap = 'Yes'
     # Check if radmc3d is installed / available
     if which('radmc3d') is None:
-        sys.exit('The executable "radmc3d" is not known by your system, so I will not be able to run it. Please check that radmc3d is installed indeed and that it can be called via the radmc3d command in any directory on your architecture. This may require to add radmc3d in the "PATH" global environment in your .abshrc file (if you are using bash).')
+        print('The executable "radmc3d" is not known by your system, so I will not be able to run it. Please check that radmc3d is installed indeed and that it can be called via the radmc3d command in any directory on your architecture. This may require to add radmc3d in the "PATH" global environment in your .abshrc file (if you are using bash).')
     
 if recalc_rawfits == 'Yes':
     recalc_fluxmap = 'Yes'

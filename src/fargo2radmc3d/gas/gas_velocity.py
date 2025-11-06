@@ -2,6 +2,7 @@
 from ..core import par
 
 import numpy as np
+import math
 
 from ..core.mesh import *
 from ..core.field import *
@@ -58,10 +59,13 @@ def compute_gas_velocity():
     if par.fargo3d == 'Yes' and par.hydro2D == 'No':
 
         vtheta3D  = Field(field='gasvz'+str(par.on)+'.dat', directory=par.dir).data  # code units
-        vtheta3D *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
+        factor = (par.gas.culength*1e2)/(par.gas.cutime)
+        if par.inputs_already_cgs == 'No':
+            vtheta3D *= factor  # cm/s
         
         vrad3D    = Field(field='gasvy'+str(par.on)+'.dat', directory=par.dir).data  # code units
-        vrad3D   *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
+        if par.inputs_already_cgs == 'No':
+            vrad3D   *= factor  # cm/s
 
         vphi3D    = Field(field='gasvx'+str(par.on)+'.dat', directory=par.dir).data  # code units
         init_vphi_path = os.path.join(par.dir if par.dir.endswith('/') == False else par.dir[:-1], 'gasvx0.dat')
@@ -70,16 +74,28 @@ def compute_gas_velocity():
         else:
             vphi3D0 = np.zeros_like(vphi3D)
 
-        f1, xpla, ypla, f4, f5, f6, f7, f8, date, omega = np.loadtxt(par.dir+"/planet0.dat",unpack=True)
-        omegaframe  = omega[par.on]
-        omegaframe0 = omega[0]
+        # Rotating frame angular frequency from variables.par
+        omegaframe  = float(getattr(par, 'omegaframe_value', 0.0))
+        omegaframe0 = omegaframe
         
-        for theta in range(par.gas.ncol):
-            for phi in range(par.gas.nsec):
-                vphi3D[theta,:,phi] += par.gas.rmed*omegaframe
-                vphi3D0[theta,:,phi] += par.gas.rmed*omegaframe0
-        vphi3D   *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
-        vphi3D0  *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
+        if par.inputs_already_cgs == 'No':
+            for theta in range(par.gas.ncol):
+                for phi in range(par.gas.nsec):
+                    vphi3D[theta,:,phi] += par.gas.rmed*omegaframe
+                    vphi3D0[theta,:,phi] += par.gas.rmed*omegaframe0
+            vphi3D   *= factor  # cm/s
+            vphi3D0  *= factor  # cm/s
+        else:
+            # Add rotating-frame correction in cgs units to cgs inputs
+            delta = par.gas.rmed*omegaframe * factor
+            delta0 = par.gas.rmed*omegaframe0 * factor
+            for theta in range(par.gas.ncol):
+                for phi in range(par.gas.nsec):
+                    vphi3D[theta,:,phi] += delta
+                    vphi3D0[theta,:,phi] += delta0
+            # Convert initial vphi0 (read in code units) to cgs to match cgs inputs
+            if os.path.isfile(init_vphi_path):
+                vphi3D0  *= 1.0  # already offset added in cgs; keep array in cgs
 
     else:  # 2D simulation carried out with dusty fargo adsg or Fargo 3D
 
@@ -95,25 +111,45 @@ def compute_gas_velocity():
         if par.fargo3d == 'No':
             vrad2D   = Field(field='gasvrad'+str(par.on)+'.dat', directory=par.dir).data  # code units
             vphi2D   = Field(field='gasvtheta'+str(par.on)+'.dat', directory=par.dir).data  # code units
-            vphi2D0  = Field(field='gasvtheta0.dat', directory=par.dir).data  # code units
-            f1, xpla, ypla, f4, f5, f6, f7, date, omega, f10, f11 = np.loadtxt(par.dir+"/planet0.dat",unpack=True)
+            init_vphi2D_path = os.path.join(par.dir if par.dir.endswith('/') == False else par.dir[:-1], 'gasvtheta0.dat')
+            if os.path.isfile(init_vphi2D_path):
+                vphi2D0  = Field(field='gasvtheta0.dat', directory=par.dir).data  # code units
+            else:
+                vphi2D0  = np.zeros_like(vphi2D)
         else:
             vrad2D    = Field(field='gasvy'+str(par.on)+'.dat', directory=par.dir).data  # code units
             vphi2D    = Field(field='gasvx'+str(par.on)+'.dat', directory=par.dir).data  # code units
-            vphi2D0   = Field(field='gasvx0.dat', directory=par.dir).data  # code units
-            f1, xpla, ypla, f4, f5, f6, f7, f8, date, omega = np.loadtxt(par.dir+"/planet0.dat",unpack=True)
-            
-        vrad2D   *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
+            init_vphi2D_path = os.path.join(par.dir if par.dir.endswith('/') == False else par.dir[:-1], 'gasvx0.dat')
+            if os.path.isfile(init_vphi2D_path):
+                vphi2D0   = Field(field='gasvx0.dat', directory=par.dir).data  # code units
+            else:
+                vphi2D0   = np.zeros_like(vphi2D)
+        
+        factor = (par.gas.culength*1e2)/(par.gas.cutime)
+        if par.inputs_already_cgs == 'No':
+            vrad2D   *= factor  # cm/s
 
-        omegaframe  = omega[par.on]
-        omegaframe0 = omega[0]
+        # Rotating frame angular frequency from variables.par
+        omegaframe  = float(getattr(par, 'omegaframe_value', 0.0))
+        omegaframe0 = omegaframe
         print('omegaframe = ', omegaframe)
         
-        for phi in range(par.gas.nsec):
-            vphi2D[:,phi]  += par.gas.rmed*omegaframe
-            vphi2D0[:,phi] += par.gas.rmed*omegaframe0
-        vphi2D   *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
-        vphi2D0  *= (par.gas.culength*1e2)/(par.gas.cutime) #cm/s
+        if par.inputs_already_cgs == 'No':
+            for phi in range(par.gas.nsec):
+                vphi2D[:,phi]  += par.gas.rmed*omegaframe
+                vphi2D0[:,phi] += par.gas.rmed*omegaframe0
+            vphi2D   *= factor  # cm/s
+            vphi2D0  *= factor  # cm/s
+        else:
+            # Add rotating-frame correction in cgs units to cgs inputs
+            delta = par.gas.rmed*omegaframe * factor
+            delta0 = par.gas.rmed*omegaframe0 * factor
+            for phi in range(par.gas.nsec):
+                vphi2D[:,phi]  += delta
+                vphi2D0[:,phi] += delta0
+            # Convert initial vphi0 (read in code units) to cgs to match cgs inputs
+            if os.path.isfile(init_vphi2D_path):
+                vphi2D0  *= 1.0  # already offset added in cgs; keep array in cgs
 
         # Make gas velocity axisymmetric (testing purposes)
         if ('axisymgas' in open('params.dat').read()) and (par.axisymgas == 'Yes'):

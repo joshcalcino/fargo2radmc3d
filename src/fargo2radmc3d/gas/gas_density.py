@@ -18,9 +18,15 @@ from ..core.plot_utils import species_label, rz_edges_au, xy_edges_au, plot_rz_s
 def compute_gas_mass_volume_density():
 
     if par.hydro2D == 'No':
-        gascube = par.gas.data*(par.gas.cumass*1e3)/((par.gas.culength*1e2)**3.)  # ncol, nrad, nsec, quantity is in g / cm^3
+        if par.inputs_already_cgs == 'No':
+            gascube = par.gas.data*(par.gas.cumass*1e3)/((par.gas.culength*1e2)**3.)  # ncol, nrad, nsec, quantity is in g / cm^3
+        else:
+            gascube = par.gas.data  # already in g / cm^3
     else:
-        gascube = par.gas.data*(par.gas.cumass*1e3)/((par.gas.culength*1e2)**2.)  # nrad, nsec, quantity is in g / cm^2
+        if par.inputs_already_cgs == 'No':
+            gascube = par.gas.data*(par.gas.cumass*1e3)/((par.gas.culength*1e2)**2.)  # nrad, nsec, quantity is in g / cm^2
+        else:
+            gascube = par.gas.data  # already in g / cm^2
     
     # Binary output files
     GASOUT = open('numberdens_%s.binp'%par.gasspecies,'wb')    # binary format

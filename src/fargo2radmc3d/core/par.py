@@ -5,8 +5,46 @@ import sys
 import os
 import re
 import subprocess
+import glob
 
 from shutil import which
+
+# Keep awk_command defined for compatibility with legacy calls in other modules
+if which('gawk') is not None:
+    awk_command = 'gawk'
+elif which('awk') is not None:
+    awk_command = 'awk'
+else:
+    awk_command = 'awk'
+
+# Pure-Python helpers to read .par files
+def _read_par_kv(path):
+    d = {}
+    with open(path) as f:
+        for line in f:
+            s = line.strip()
+            if not s:
+                continue
+            if s[0] == '#':
+                continue
+            parts = s.split()
+            if len(parts) < 2:
+                continue
+            key = parts[0].upper()
+            d[key] = parts[1]
+    return d
+
+def _read_dir_pars(dpath):
+    out = {}
+    for p in sorted(glob.glob(os.path.join(dpath, '*.par'))):
+        base = os.path.basename(p).lower()
+        if base == 'variables.par':
+            continue
+        try:
+            out.update(_read_par_kv(p))
+        except Exception:
+            pass
+    return out
 
 # -----------------------------
 # global constants in cgs units
@@ -92,37 +130,41 @@ if os.path.isfile(dir+'/variables.par') == True:
 # if fargo3d == 'No':
 #     dustfluids = 'No'
     
-# Check whether awk or gawk are installed!
-if which('gawk') is not None:
-    awk_command = 'gawk'
-else:
-    if which('awk') is not None:
-        awk_command = 'awk'
-    else:
-        print('neither gawk not awk are installed on your system! I cannot use them to extract relevant parameters from your .par parameter file in the simulation directory. Please install either awk or gawk.')
+# Build dictionaries of parameters from variables.par and setup .par files
+vars_kv = {}
+try:
+    if os.path.isfile(os.path.join(dir, 'variables.par')):
+        vars_kv = _read_par_kv(os.path.join(dir, 'variables.par'))
+except Exception:
+    vars_kv = {}
+try:
+    setup_kv = _read_dir_pars(dir)
+except Exception:
+    setup_kv = {}
 
 
-# Check if Fargo3D simulation was carried out in 2D or in 3D by
-# fetching NZ in the variables.par file:
+# Check if Fargo3D simulation was carried out in 2D or in 3D
 half_a_disc = 'No'
 if fargo3d == 'Yes':
-    command = awk_command+' " /^NZ/ " '+dir+'/*.par'
-    if sys.version_info[0] < 3:
-        buf = subprocess.check_output(command, shell=True)
-    else:
-        buf = subprocess.getoutput(command)
-    Nz = float(buf.split()[1])
+    try:
+        Nz = float(vars_kv.get('NZ', setup_kv.get('NZ', 1)))
+    except Exception:
+        Nz = 1.0
     if Nz > 1:  # 3D run
         hydro2D = 'No'
         # check if 3D simulation covers half a disk only in the latitudinal direction 
-        command = awk_command+' " /^ZMAX/ " '+dir+'/variables.par'
-        if sys.version_info[0] < 3:   # python 2.X
-            buf = subprocess.check_output(command, shell=True)
-        else:                         # python 3.X
-            buf = subprocess.getoutput(command)
-        zmax = float(buf.split()[1])
+        try:
+            zmax = float(vars_kv.get('ZMAX', 0.0))
+        except Exception:
+            zmax = 0.0
         if np.abs(zmax - 1.57) < 0.01:             # half disk
             half_a_disc = 'Yes'
+
+# Rotating frame angular frequency from variables.par (OMEGAFRAME)
+try:
+    omegaframe_value = float(vars_kv.get('OMEGAFRAME', 0.0))
+except Exception:
+    omegaframe_value = 0.0
 
 
 # Define parameters for use by RADMC-3D
@@ -212,14 +254,8 @@ bpaangle = -90.0-bpaangle
 
 # Dust global parameters in Fargo3D simulations
 if fargo3d == 'Yes' and (RTdust_or_gas == 'dust' or RTdust_or_gas == 'both'):
-    command = awk_command+' " /^DUSTINTERNALRHO/ " '+dir+'/variables.par'
-    # check which version of python we're using
-    if sys.version_info[0] < 3:   # python 2.X
-        buf = subprocess.check_output(command, shell=True)
-    else:                         # python 3.X
-        buf = subprocess.getoutput(command)
     try:
-        dust_internal_density = float(buf.split()[1])
+        dust_internal_density = float(vars_kv.get('DUSTINTERNALRHO', 2.7))
     except Exception:
         dust_internal_density = 2.7
         print('warning: DUSTINTERNALRHO not found in '+dir+'/variables.par; defaulting dust_internal_density to 2.7 g/cm^3')
@@ -344,6 +380,20 @@ if not('bin_small_dust' in open('params.dat').read()):
 if not('dustdens_eq_gasdens' in open('params.dat').read()):
     dustdens_eq_gasdens = 'No'
 
+if not('inputs_already_cgs' in open('params.dat').read()):
+    inputs_already_cgs = 'No'
+
+if not('nbcores' in open('params.dat').read()):
+    nbcores = os.cpu_count() or 12
+
+os.environ['OMP_NUM_THREADS'] = str(nbcores)
+os.environ['OMP_PROC_BIND'] = 'spread'
+os.environ['OMP_PLACES'] = 'cores'
+
+# Planet presence flag (optional)
+if not('has_planets' in open('params.dat').read()):
+    has_planets = 'No'
+
 # Accretion luminosity controls (optional)
 if not('include_accretion_lum' in open('params.dat').read()):
     include_accretion_lum = 'No'
@@ -356,97 +406,57 @@ if ('f' in open('params.dat').read()) and not('accretion_fill_factor' in open('p
 if not('accretion_fill_factor' in open('params.dat').read()):
     accretion_fill_factor = 0.01
 
-    
-# Set of parameters that we only need to read or specify even if
-# radmc3d is not called get the aspect ratio and flaring index used in
-# the numerical simulation note that this works both for Dusty
-# FARGO-ADSG and FARGO3D simulations
-command = awk_command+' " BEGIN{IGNORECASE=1} /^AspectRatio/ " '+dir+'/*.par'
-# check which version of python we're using
-if sys.version_info[0] < 3:   # python 2.X
-    buf = subprocess.check_output(command, shell=True)
-else:                         # python 3.X
-    buf = subprocess.getoutput(command)
-aspectratio = float(buf.split()[1])
+# Camera FOV controls (optional; negative means disabled)
+if not('image_size_au' in open('params.dat').read()):
+    image_size_au = -1.0
+if not('image_size_arcsec' in open('params.dat').read()):
+    image_size_arcsec = -1.0
 
-# get the flaring index used in the numerical simulation note that
-# this works both for Dusty FARGO-ADSG and FARGO3D simulations
-command = awk_command+' " BEGIN{IGNORECASE=1} /^FlaringIndex/ " '+dir+'/*.par'
-if sys.version_info[0] < 3:
-    buf = subprocess.check_output(command, shell=True)
-else:
-    buf = subprocess.getoutput(command)
-flaringindex = float(buf.split()[1])
+    
+# Set of parameters from setup .par files (case-insensitive)
+val_ar = setup_kv.get('ASPECTRATIO', vars_kv.get('ASPECTRATIO', None))
+if val_ar is None:
+    raise RuntimeError('ASPECTRATIO not found in .par files in '+dir)
+aspectratio = float(val_ar)
+
+# get the flaring index used in the numerical simulation
+val_fi = setup_kv.get('FLARINGINDEX', vars_kv.get('FLARINGINDEX', None))
+if val_fi is None:
+    raise RuntimeError('FLARINGINDEX not found in .par files in '+dir)
+flaringindex = float(val_fi)
     
 # get the alpha viscosity used in the numerical simulation
 if fargo3d == 'No':
-    try:
-        command = awk_command+' " /^AlphaViscosity/ " '+dir+'/*.par'
-        if sys.version_info[0] < 3:
-            buf = subprocess.check_output(command, shell=True)
-        else:
-            buf = subprocess.getoutput(command)
-        alphaviscosity = float(buf.split()[1])
-# if no alphaviscosity, then try to see if a constant
-# kinematic viscosity has been used in the simulation
-    except IndexError:
-        command = awk_command+' " /^Viscosity/ " '+dir+'/*.par'
-        if sys.version_info[0] < 3:
-            buf = subprocess.check_output(command, shell=True)
-        else:
-            buf = subprocess.getoutput(command)
-        viscosity = float(buf.split()[1])
-        # simply set constant alpha value as nu / h^2 (ok at code's unit of length)
+    if 'ALPHAVISCOSITY' in setup_kv or 'ALPHAVISCOSITY' in vars_kv:
+        alphaviscosity = float(setup_kv.get('ALPHAVISCOSITY', vars_kv.get('ALPHAVISCOSITY')))
+    else:
+        viscosity = float(setup_kv.get('VISCOSITY', vars_kv.get('VISCOSITY', 0.0)))
         alphaviscosity = viscosity * (aspectratio**(-2.0))
 if fargo3d == 'Yes':
-    try:
-        command = awk_command+' " /^ALPHA/ " '+dir+'/*.par'
-        if sys.version_info[0] < 3:
-            buf = subprocess.check_output(command, shell=True)
-        else:
-            buf = subprocess.getoutput(command)
-        alphaviscosity = float(buf.split()[1])
+    alpha_val = setup_kv.get('ALPHA', vars_kv.get('ALPHA', None))
+    if alpha_val is not None:
+        alphaviscosity = float(alpha_val)
         if alphaviscosity == 0.0:
-            command = awk_command+' " /^NU/ " '+dir+'/*.par'
-            if sys.version_info[0] < 3:
-                buf = subprocess.check_output(command, shell=True)
-            else:
-                buf = subprocess.getoutput(command)
-            viscosity = float(buf.split()[1])
+            viscosity = float(setup_kv.get('NU', vars_kv.get('NU', 0.0)))
             if viscosity != 0.0:
                 alphaviscosity = viscosity * (aspectratio**(-2.0))
-# if no alphaviscosity, then try to see if a constant
-# kinematic viscosity has been used in the simulation
-    except IndexError:
-        command = awk_command+' " /^NU/ " '+dir+'/*.par'
-        if sys.version_info[0] < 3:
-            buf = subprocess.check_output(command, shell=True)
-        else:
-            buf = subprocess.getoutput(command)
-        viscosity = float(buf.split()[1])
-        # simply set constant alpha value as nu / h^2 (ok at code's unit of length)
+    else:
+        viscosity = float(setup_kv.get('NU', vars_kv.get('NU', 0.0)))
         alphaviscosity = viscosity * (aspectratio**(-2.0))
             
 # get the grid's radial spacing
 if fargo3d == 'No':
-    command = awk_command+' " /^RadialSpacing/ " '+dir+'/*.par'
-    if sys.version_info[0] < 3:
-        buf = subprocess.check_output(command, shell=True)
-    else:
-        buf = subprocess.getoutput(command)
-    radialspacing = str(buf.split()[1])
+    radialspacing = str(setup_kv.get('RADIALSPACING', vars_kv.get('RADIALSPACING', 'LOG')))
 
 
 periodicz = 0
 if fargo3d == 'Yes':
     # check if periodicz keyword shows up, in which case treat simulation 
     # as if it was 2D (no vertical stratification!)
-    command = awk_command+' " /^PERIODICZ/ " '+dir+'/variables.par'
-    if sys.version_info[0] < 3:   # python 2.X
-        buf = subprocess.check_output(command, shell=True)
-    else:                         # python 3.X
-        buf = subprocess.getoutput(command)
-    periodicz = float(buf.split()[1])
+    try:
+        periodicz = float(vars_kv.get('PERIODICZ', 0))
+    except Exception:
+        periodicz = 0
 
 # Get gas surface density field from hydro simulation, with
 # the aim to inherit from the parameters attached to the mesh

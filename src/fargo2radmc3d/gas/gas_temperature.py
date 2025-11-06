@@ -68,7 +68,8 @@ def compute_hydro_temperature():
             gamma = float(buf.split()[1])    
             thydro = (gamma-1.0)*e/rho
 
-        thydro *= par.gas.cutemp    # (ncol,nrad,nsec) in K
+        if par.inputs_already_cgs == 'No':
+            thydro *= par.gas.cutemp
         gas_temp = thydro
 
     # --------------------------
@@ -92,8 +93,9 @@ def compute_hydro_temperature():
                     gas_temp_cyl[j,:,k] = thydro  # only function of R (cylindrical radius)
         # case existing gas Temperature file:
         else:
-            thydro = Field(field='Temperature'+str(par.on)+'.dat', directory=par.dir).data  # in code units
-            thydro *= par.gas.cutemp  # (nrad,nsec) in K
+            thydro = Field(field='Temperature'+str(par.on)+'.dat', directory=par.dir).data
+            if par.inputs_already_cgs == 'No':
+                thydro *= par.gas.cutemp
             for j in range(par.gas.nver):
                 gas_temp_cyl[j,:,:] = thydro    # function of R and phi
 

@@ -31,7 +31,29 @@ class Mesh():
         try:
             domain_rad = np.loadtxt(directory+"used_rad.dat")  # radial interfaces of grid cells
         except IOError:
-            print('IOError')
+            # Fallback: infer radial edges from variables.par (NY, YMIN, YMAX, SPACING)
+            vars_path = directory+'variables.par'
+            try:
+                with open(vars_path) as vf:
+                    vals = {}
+                    for line in vf:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            key = parts[0].strip().upper()
+                            vals[key] = parts[1]
+                nrad_fallback = int(float(vals.get('NY')))
+                y_min = float(vals.get('YMIN'))
+                y_max = float(vals.get('YMAX'))
+                spacing = (vals.get('SPACING', 'Lin')).strip()
+                if spacing.lower().startswith('log'):
+                    # guard against non-positive bounds in logspace
+                    y_min_eff = max(y_min, 1e-99)
+                    domain_rad = np.logspace(np.log10(y_min_eff), np.log10(y_max), nrad_fallback+1)
+                else:
+                    domain_rad = np.linspace(y_min, y_max, nrad_fallback+1)
+            except Exception:
+                print('IOError')
+                domain_rad = np.array([0.0, 1.0])
         self.redge = domain_rad                                # r-edge
         self.rmed = 2.0*(domain_rad[1:]*domain_rad[1:]*domain_rad[1:] - domain_rad[:-1]*domain_rad[:-1]*domain_rad[:-1]) / (domain_rad[1:]*domain_rad[1:] - domain_rad[:-1]*domain_rad[:-1]) / 3.0  # r-center 
 

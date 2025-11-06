@@ -27,12 +27,54 @@ class Field(Mesh):
                 directory += '/'
 
         # get nrad and nsec (number of cells in radial and azimuthal directions)
-        buf, buf, buf, buf, buf, buf, nrad, nsec = np.loadtxt(directory+"dims.dat",
-                                                      unpack=True)
-        nrad = int(nrad)
-        nsec = int(nsec)
-        self.nrad = nrad
-        self.nsec = nsec
+        # Fallback: if dims.dat is missing, infer from used_rad.dat and the field file size.
+        try:
+            buf, buf, buf, buf, buf, buf, nrad, nsec = np.loadtxt(directory+"dims.dat", unpack=True)
+            nrad = int(nrad)
+            nsec = int(nsec)
+            self.nrad = nrad
+            self.nsec = nsec
+        except Exception:
+            # Infer nrad from used_rad.dat (edges) or variables.par (NY)
+            try:
+                redge = np.loadtxt(directory+"used_rad.dat")
+                nrad = int(len(redge) - 1)
+            except Exception:
+                # Fallback to variables.par
+                vars_path = directory+'variables.par'
+                try:
+                    with open(vars_path) as vf:
+                        vals = {}
+                        for line in vf:
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                key = parts[0].strip().upper()
+                                vals[key] = parts[1]
+                    nrad = int(float(vals.get('NY')))
+                except Exception:
+                    raise FileNotFoundError(f"Could not read dims.dat, used_rad.dat, or variables.par in '{directory}'.")
+            self.nrad = nrad
+
+            # Determine ncol to infer nsec from field size if 3D
+            if par.hydro2D == 'Yes':
+                ncol_local = par.ncol
+            else:
+                command = par.awk_command+' " /^NZ/ " ' + directory + 'variables.par'
+                if sys.version_info[0] < 3:   # python 2.X
+                    buf = subprocess.check_output(command, shell=True)
+                else:                         # python 3.X
+                    buf = subprocess.getoutput(command)
+                ncol_local = int(buf.split()[1])
+
+            # Infer nsec from field file size
+            arr = np.fromfile(directory+field, dtype=dtype)
+            if par.hydro2D == 'No':
+                denom = ncol_local * nrad
+            else:
+                denom = nrad
+            if denom <= 0 or arr.size % denom != 0:
+                raise RuntimeError(f"Cannot infer nsec from field '{field}': size={arr.size}, denom={denom}")
+            self.nsec = int(arr.size // denom)
         if par.hydro2D == 'Yes':
             self.ncol = par.ncol              # colatitude (ncol is a global variable)
         else:

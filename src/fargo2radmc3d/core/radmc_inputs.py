@@ -33,15 +33,45 @@ def write_radmc3d_script():
                 command='radmc3d image tracetau iline '+str(par.iline)+' widthkms '+str(par.widthkms)+' linenlam '+str(par.linenlam)+' npix '+str(par.nbpixels)+' incl '+str(par.inclination)+' posang '+str(par.posangle+90.0)+' phi '+str(par.phiangle)
                 #command='radmc3d tausurf 1.0 iline '+str(iline)+' widthkms '+str(widthkms)+' linenlam '+str(linenlam)+' npix '+str(nbpixels)+' incl '+str(inclination)+' posang '+str(posangle+90.0)+' phi '+str(phiangle)
 
-    # optional: second-order ray tracing
-    if par.secondorder == 'Yes':
-        command=command+' secondorder'
+    # Optional camera field-of-view control
+    try:
+        sizeau_val = None
+        if hasattr(par, 'image_size_au'):
+            try:
+                sizeau_val = float(par.image_size_au)
+            except Exception:
+                sizeau_val = None
+        if sizeau_val is None and hasattr(par, 'image_size_arcsec'):
+            try:
+                arc = float(par.image_size_arcsec)
+                sizeau_val = arc * float(par.distance)
+            except Exception:
+                sizeau_val = None
+        if sizeau_val is not None and sizeau_val > 0:
+            command += ' sizeau ' + str(sizeau_val)
+    except Exception:
+        pass
+
+    # optional: second-order ray tracing (case-insensitive)
+    try:
+        secondorder_flag = str(getattr(par, 'secondorder', 'No')).strip().lower()
+    except Exception:
+        secondorder_flag = 'no'
+    if secondorder_flag == 'yes':
+        command = command + ' secondorder'
+
+    threads = int(getattr(par, 'nbcores', 12))
+
+    command = command + ' setthreads ' + str(threads)
 
     # write execution script
     if par.verbose == 'Yes':
         print(command)
     SCRIPT = open('script_radmc','w')
     SCRIPT.write('#!/usr/bin/env bash\n')
+    SCRIPT.write('export OMP_NUM_THREADS="'+str(threads)+'"\n')
+    SCRIPT.write('export OMP_PROC_BIND=spread\n')
+    SCRIPT.write('export OMP_PLACES=cores\n')
     '''
     if par.Tdust_eq_Thydro == 'No':
         SCRIPT.write('radmc3d mctherm; '+command)

@@ -60,6 +60,9 @@ def exportfits():
         lbda = np.zeros(nlam)
         for i in range(nlam):
             lbda[i] = float(f.readline())
+        # Normalize flags early for robust comparisons; needed below when nlam == 1
+        rt_mode = str(getattr(par, 'RTdust_or_gas', 'dust')).strip().lower()
+        pol_flag = str(getattr(par, 'polarized_scat', 'No')).strip().lower()
         # convert lbda in velocity (km/s)
         if nlam > 1:
             lbda0 = lbda[nlam//2]  # implicitly gas RT

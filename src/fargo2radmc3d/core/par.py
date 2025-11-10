@@ -121,6 +121,57 @@ if verbose == 'Yes':
 # Below we work out specific parameters and/or error messages
 # -------------------------
         
+# case-insensitive normalization of key parameters
+def _to_yesno(x):
+    try:
+        s = str(x).strip().lower()
+    except Exception:
+        return x
+    if s in ('yes','y','true','1'):
+        return 'Yes'
+    if s in ('no','n','false','0'):
+        return 'No'
+    return x
+
+def _to_mode(x):
+    try:
+        s = str(x).strip().lower()
+    except Exception:
+        return x
+    if s in ('dust','gas','both'):
+        return s
+    return str(x)
+
+def _to_field(x):
+    try:
+        s = str(x).strip().lower()
+    except Exception:
+        return x
+    if s == 'qphi':
+        return 'Qphi'
+    if s == 'i':
+        return 'I'
+    if s == 'pi':
+        return 'PI'
+    return x
+
+try:
+    RTdust_or_gas = _to_mode(RTdust_or_gas)
+except Exception:
+    pass
+
+for _n in ['verbose','recalc_dust_density','recalc_dust_temperature','plot_dust_quantities','recalc_opac','polarized_scat','AddStarInRawImage','deproj_polar','axi_intensity','brightness_temp','secondorder','recalc_radmc','recalc_rawfits','recalc_fluxmap','subtract_continuum','plot_tau','calc_abs_map','use_gas_density','Tdust_eq_Thydro','Tdust_eq_Tgas','check_beam','r2_rescale','inputs_already_cgs','precalc_opac','freezeout','has_planets','include_accretion_lum']:
+    if _n in globals():
+        try:
+            globals()[_n] = _to_yesno(globals()[_n])
+        except Exception:
+            pass
+
+try:
+    polarized_scat_field = _to_field(polarized_scat_field)
+except Exception:
+    pass
+
 # was simulation carried out with Fargo3D?
 hydro2D = 'Yes'
 fargo3d = 'No'

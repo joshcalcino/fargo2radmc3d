@@ -5,6 +5,9 @@ import numpy as np
 import os
 import matplotlib
 import matplotlib.pyplot as plt
+import sys
+from shutil import which
+import urllib.request
 
 # Physical constants (cgs)
 SIGMA_SB = 5.670374419e-5  # Stefan–Boltzmann constant [erg cm^-2 s^-1 K^-4]
@@ -435,3 +438,133 @@ def write_lines(specie,lines_mode):
         os.system(command)
         command = 'mv '+datafile+'.dat molecule_'+str(par.gasspecies)+'.inp'
         os.system(command)
+
+
+def _ensure_isrf_file(path: str = 'ISRF.dat', url: str = 'https://home.strw.leidenuniv.nl/~ewine/photo/data/photo_data/radiation_fields/ISRF.dat') -> str:
+    if os.path.isfile(path):
+        return path
+    if which('curl') is None:
+        try:
+            urllib.request.urlretrieve(url, path)
+            return path
+        except Exception as e:
+            raise RuntimeError(f"Failed to download ISRF file without curl: {e}")
+    cmd = f"curl -k -L -o {path} {url}"
+    os.system(cmd)
+    if not os.path.isfile(path):
+        raise RuntimeError('Failed to download ISRF.dat')
+    return path
+
+
+def _parse_isrf_table(path: str, quantity: str = 'auto') -> tuple[np.ndarray, np.ndarray, str]:
+    lam = []
+    val = []
+    header = []
+    with open(path, 'r') as f:
+        for line in f:
+            s = line.strip()
+            if not s:
+                continue
+            if s[0] in ('#', '!', '%') or any(c.isalpha() for c in s.split()[0]):
+                header.append(s.lower())
+                continue
+            parts = s.split()
+            try:
+                x = float(parts[0])
+                y = float(parts[1])
+                lam.append(x)
+                val.append(y)
+            except Exception:
+                continue
+    lam = np.array(lam, dtype=float)
+    val = np.array(val, dtype=float)
+    if lam.size == 0:
+        raise RuntimeError('ISRF file could not be parsed')
+    if quantity is None or str(quantity).lower() == 'auto':
+        q = 'j_lambda'
+        joined = ' '.join(header)
+        if 'u_lambda' in joined:
+            q = 'u_lambda'
+        elif 'i_lambda' in joined:
+            q = 'i_lambda'
+        elif 'j_lambda' in joined:
+            q = 'j_lambda'
+    else:
+        q = str(quantity).lower()
+    joined = ' '.join(header)
+    if 'angstrom' in joined or 'ang' in joined:
+        lam_cm = lam * 1e-8
+    elif 'micron' in joined or 'um' in joined or 'μm' in joined:
+        lam_cm = lam * 1e-4
+    elif 'nm' in joined:
+        lam_cm = lam * 1e-7
+    else:
+        a = np.median(lam)
+        if a > 50.0:
+            lam_cm = lam * 1e-8
+        elif a < 1e-2:
+            lam_cm = lam
+        else:
+            lam_cm = lam * 1e-4
+    return lam_cm, val, q
+
+
+def _to_i_nu_from_table(lam_cm: np.ndarray, values: np.ndarray, quantity: str) -> np.ndarray:
+    c = par.c
+    pi = np.pi
+    q = quantity.lower()
+    if q == 'u_lambda':
+        return (lam_cm**2 / (4.0 * pi)) * values
+    if q == 'j_lambda':
+        return values * (lam_cm**2 / c)
+    if q == 'i_lambda':
+        return values * (lam_cm**2 / c)
+    return values * (lam_cm**2 / c)
+
+def write_external_isrf(G0=None,
+                        chi=None,
+                        chi_per_G0: float = 1.7,
+                        isrf_path: str = 'ISRF.dat',
+                        quantity: str = 'auto',
+                        sanity_check: bool = True) -> None:
+    data_path = _ensure_isrf_file(isrf_path)
+    lam_tab_cm, values, q = _parse_isrf_table(data_path, quantity)
+    i_nu_tab = _to_i_nu_from_table(lam_tab_cm, values, q)
+    lam_um = read_wavelength_grid_or_default()
+    lam_cm = lam_um * 1e-4
+    x = np.array(lam_tab_cm, dtype=float)
+    y = np.array(i_nu_tab, dtype=float)
+    order = np.argsort(x)
+    x = x[order]
+    y = y[order]
+    y = np.where(y > 0, y, np.nan)
+    i_nu_model = np.zeros_like(lam_cm)
+    m = (lam_cm >= x[0]) & (lam_cm <= x[-1])
+    if np.any(m):
+        i_nu_model[m] = np.exp(np.interp(np.log(lam_cm[m]), np.log(x[np.isfinite(y)]), np.log(y[np.isfinite(y)])))
+    if chi is not None:
+        scale = float(chi)
+        use_draine = True
+    elif G0 is not None:
+        scale = float(chi_per_G0) * float(G0)
+        use_draine = False
+    else:
+        scale = 1.0
+        use_draine = True
+    i_nu_scaled = scale * i_nu_model
+    if sanity_check:
+        lam_min_cm = 912.0e-8
+        lam_max_cm = 2000.0e-8
+        m = (lam_cm >= lam_min_cm) & (lam_cm <= lam_max_cm)
+        if np.any(m):
+            u_lambda = (4.0*np.pi / (lam_cm**2)) * i_nu_scaled
+            u_fuv = np.trapz(u_lambda[m], lam_cm[m])
+            u_habing = 5.29e-14
+            ratio = u_fuv / u_habing
+            if par.verbose == 'Yes' and not np.isfinite(ratio):
+                print(f"[ISRF] Sanity check could not be validated. u_FUV/u_Habing = {ratio:.3g}")
+    with open('external_source.inp', 'w') as f:
+        f.write('2\n')
+        f.write(f"{lam_um.size}\n")
+        for val in i_nu_scaled:
+            f.write(f"{val:.8e}\n")

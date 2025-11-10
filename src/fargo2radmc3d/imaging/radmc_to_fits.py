@@ -69,7 +69,7 @@ def exportfits():
                 print('range of velocities = ', vel_range)
             dv = vel_range[1]-vel_range[0]
         else:
-            if par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both':
+            if rt_mode in ('gas', 'both'):
                 lbda0 = lbda[0]
             else:
                 lbda0 = par.wavelength*1e3 # in microns
@@ -107,12 +107,16 @@ def exportfits():
         stdev_x = (par.bmaj/(2.*np.sqrt(2.*np.log(2.)))) / mycdelt
         stdev_y = (par.bmin/(2.*np.sqrt(2.*np.log(2.)))) / mycdelt
             
+        # Normalize flags for robust comparisons
+        rt_mode = str(getattr(par, 'RTdust_or_gas', 'dust')).strip().lower()
+        pol_flag = str(getattr(par, 'polarized_scat', 'No')).strip().lower()
+
         # gas or dust continuum -> 1D array:
-        if par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both' or (par.RTdust_or_gas == 'dust' and par.polarized_scat == 'No'):
+        if (rt_mode in ('gas', 'both')) or (rt_mode == 'dust' and pol_flag != 'yes'):
             images = np.loadtxt(infile, skiprows=5+nlam)
 
         # dust polarized emission -> 1D array:
-        if par.RTdust_or_gas == 'dust' and par.polarized_scat == 'Yes':
+        if rt_mode == 'dust' and pol_flag == 'yes':
             images = np.zeros((5*im_ny*im_nx))
             im = images.reshape(5,im_ny,im_nx)
 
@@ -130,6 +134,14 @@ def exportfits():
 
             images = im.reshape(5*im_ny*im_nx)
             
+        # Safety check: ensure 'images' has been defined
+        try:
+            images
+        except NameError:
+            raise ValueError(
+                "Cannot determine image format: please set RTdust_or_gas to 'dust'/'gas'/'both' and polarized_scat to 'Yes' or 'No' (case-insensitive)."
+            )
+
         # keep track of image.out by writting its content in image.fits 
         if os.path.isfile('image.fits') == False:
                             
@@ -199,12 +211,14 @@ def exportfits():
         mydim = hdr['NAXIS']
 
         # Get dimensions from 1D array stored in image.fits:
-        if par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both':
+        rt_mode = str(getattr(par, 'RTdust_or_gas', 'dust')).strip().lower()
+        pol_flag = str(getattr(par, 'polarized_scat', 'No')).strip().lower()
+        if rt_mode in ('gas', 'both'):
             nlam = par.linenlam
             im_nx = int(np.sqrt(hdr['NAXIS1']/nlam))
             vel_range = -par.widthkms + 2.0*par.widthkms*np.arange(nlam)/(nlam-1.0)
         else:
-            if par.polarized_scat == 'Yes':
+            if pol_flag == 'yes':
                 im_nx = int(np.sqrt(hdr['NAXIS1']/5.0))
             else:
                 im_nx = int(np.sqrt(hdr['NAXIS1']))
@@ -250,7 +264,7 @@ def exportfits():
     # - - - - - -
     # dust continuum RT calculations
     # - - - - - -
-    if par.RTdust_or_gas == 'dust' and par.polarized_scat == 'No':
+    if rt_mode == 'dust' and pol_flag != 'yes':
         im = images.reshape(im_ny,im_nx)
         # sometimes the intensity has a value at the origin that is
         # unrealistically large. We put it to zero at the origin, as
@@ -279,7 +293,7 @@ def exportfits():
     # - - - - - -
     # dust polarized RT calculations
     # - - - - - -
-    if par.RTdust_or_gas == 'dust' and par.polarized_scat == 'Yes':
+    if rt_mode == 'dust' and pol_flag == 'yes':
         im = images.reshape(5,im_ny,im_nx)
 
         for k in range(5):
@@ -328,7 +342,7 @@ def exportfits():
             # very first channel map (you need to make sure that the
             # very first channel map does not contain significant
             # information on gas emission...):
-            if (par.RTdust_or_gas == 'both' and par.subtract_continuum == 'Yes'):
+            if (rt_mode == 'both' and par.subtract_continuum == 'Yes'):
                 if i==0:
                     im0 = im
                 im = im - im0
@@ -354,7 +368,7 @@ def exportfits():
         # end loop over wavelengths
         if par.moment_order == 0:
             im = moment0   # non-convolved quantity
-        if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.moment_order == 1:
+        if (rt_mode in ('gas', 'both')) and par.moment_order == 1:
 
             # -------------------------------------
             # calculate the 'classic' moment-1 map:
@@ -436,13 +450,13 @@ def exportfits():
     # Fits header
     hdu = fits.PrimaryHDU()
     hdu.header['BITPIX'] = -32
-    if par.polarized_scat == 'No':
+    if pol_flag != 'yes':
         hdu.header['NAXIS'] = 2
     else:
         hdu.header['NAXIS'] = 3
     hdu.header['NAXIS1'] = im_nx
     hdu.header['NAXIS2'] = im_ny
-    if par.polarized_scat == 'Yes':
+    if pol_flag == 'yes':
         hdu.header['NAXIS3'] = 5
     hdu.header['EPOCH']  = 2000.0
     hdu.header['EQUINOX'] = 2000.0
@@ -460,7 +474,7 @@ def exportfits():
     hdu.header['CUNIT2'] = 'deg     '
     hdu.header['CRPIX1'] = float((im_nx+1.)/2.)
     hdu.header['CRPIX2'] = float((im_ny+1.)/2.)
-    if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.moment_order == 1:
+    if (rt_mode in ('gas', 'both')) and par.moment_order == 1:
         hdu.header['BUNIT'] = 'LOS velocity'
         hdu.header['BTYPE'] = 'km/s'
     else:
@@ -546,7 +560,7 @@ def exportfits():
     # emission only)
     # ----------
     # case 1: application to CASA -> intensity in Jy/pixel, axis 4 = spectral
-    if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.intensity_inJyperpixel_inrawdatacube == 'Yes':
+    if (rt_mode in ('gas', 'both')) and par.intensity_inJyperpixel_inrawdatacube == 'Yes':
         hdu3 = fits.PrimaryHDU()
         hdu3.header['BITPIX'] = -32
         hdu3.header['NAXIS'] = 4
@@ -587,7 +601,7 @@ def exportfits():
         hdu3.writeto(par.outputfitsfile_wholedatacube, output_verify='fix', overwrite=True)
         
     # case 2: application to bettermoments -> intensity in Jy/beam, axis 3 = spectral
-    if (par.RTdust_or_gas == 'gas' or par.RTdust_or_gas == 'both') and par.intensity_inJyperpixel_inrawdatacube == 'No':
+    if (rt_mode in ('gas', 'both')) and par.intensity_inJyperpixel_inrawdatacube == 'No':
         hdu3 = fits.PrimaryHDU()
         hdu3.header['BITPIX'] = -32
         hdu3.header['NAXIS'] = 3
